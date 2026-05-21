@@ -41,63 +41,79 @@ export default async function DashboardPage() {
   const arBucketLabel = `${formatUsd(arBuckets.current)} curr · ${formatUsd(arBuckets.d30)} 30 · ${formatUsd(arBuckets.d60)} 60 · ${formatUsd(arBuckets.d90 + arBuckets.over90)} 90+`;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            One question per tile. All metrics read from the cache, refreshed
-            on a schedule.
-          </p>
-        </div>
+    <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+      <div className="min-w-0 space-y-5">
+        <p className="text-sm text-muted-foreground">
+          One question per tile. Metrics read from the cache, refreshed on
+          schedule.
+        </p>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           <KpiTile
             title="Cash position"
-            value={formatUsd(cash.cashPosition)}
+            rawValue={cash.cashPosition}
+            format="usd"
             hint="QuickBooks · pulled every 6h"
             syncedAt={cash.syncedAt}
             staleAfterMs={STALE_AFTER.qb}
+            trend={cash.trend}
+            delta={cash.delta}
           />
           <KpiTile
             title="AR aging"
-            value={formatUsd(ar.arTotal)}
+            rawValue={ar.arTotal}
+            format="usd"
             sub={arBucketLabel}
             hint="0/30/60/90+ from QuickBooks"
             syncedAt={ar.syncedAt}
             staleAfterMs={STALE_AFTER.qb}
+            trend={ar.trend}
+            delta={ar.delta}
           />
           <KpiTile
             title="DTC revenue (30d)"
-            value={formatUsd(revenue.totalRevenue)}
+            rawValue={revenue.totalRevenue}
+            format="usd"
             sub={`${formatCount(revenue.totalOrders)} orders`}
             hint="Shopify · pulled every 2h"
             syncedAt={revenue.syncedAt}
             staleAfterMs={STALE_AFTER.shopify}
+            trend={revenue.revenueTrend}
+            delta={revenue.revenueDelta}
           />
           <KpiTile
             title="AOV"
-            value={formatUsd(revenue.aov, 2)}
+            rawValue={revenue.aov}
+            format="usd"
+            fractionDigits={2}
             sub="30-day weighted"
             hint="Shopify"
             syncedAt={revenue.syncedAt}
             staleAfterMs={STALE_AFTER.shopify}
+            trend={revenue.aovTrend}
+            delta={revenue.aovDelta}
           />
           <KpiTile
             title="Email + affiliate revenue"
-            value={formatUsd(email.total)}
+            rawValue={email.total}
+            format="usd"
             sub={`${formatUsd(email.emailRevenue)} email · ${formatUsd(email.affiliateRevenue)} affiliate`}
             hint="Klaviyo · pulled every 4h"
             syncedAt={email.syncedAt}
             staleAfterMs={STALE_AFTER.klaviyo}
+            trend={email.trend}
+            delta={email.delta}
           />
           <KpiTile
             title="Wholesale pipeline"
-            value={formatUsd(pipeline.totalOpenAmount)}
+            rawValue={pipeline.totalOpenAmount}
+            format="usd"
             sub={`${formatCount(pipeline.openDealCount)} open deals`}
             hint="HubSpot · pulled every 6h"
             syncedAt={pipeline.syncedAt}
             staleAfterMs={STALE_AFTER.hubspot}
+            trend={pipeline.trend}
+            delta={pipeline.delta}
           />
           <KpiTile
             title="POs due / overdue"
@@ -113,33 +129,33 @@ export default async function DashboardPage() {
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-[13px] font-medium text-muted-foreground">
                 DTC revenue — last 30 days
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-emerald-600">
+            <CardContent className="text-brand pt-0">
               <RevenueTrendChart data={revenue.points} />
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-[13px] font-medium text-muted-foreground">
                 Wholesale pipeline by state
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-sky-600">
+            <CardContent className="text-brand pt-0">
               <PipelineByStateChart data={pipeline.byState} />
             </CardContent>
           </Card>
         </div>
       </div>
 
-      <div className="lg:sticky lg:top-8 lg:self-start lg:h-[calc(100vh-4rem)]">
+      <aside className="min-h-[480px] lg:min-h-0">
         <ChatPanel />
-      </div>
+      </aside>
     </div>
   );
 }

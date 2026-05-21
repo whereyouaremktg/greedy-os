@@ -1,26 +1,80 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/db";
 
+export {
+  formatUsd,
+  formatCount,
+  formatPercent,
+  formatDelta,
+} from "@/lib/format";
+
 type DB = SupabaseClient<Database>;
 
 const OPEN_DEAL_STAGES_EXCLUDED = ["closed_won", "closed_lost"] as const;
+const TREND_DAYS = 14;
+
+export type MetricDelta = {
+  value: number;
+  label?: string;
+};
+
+function lastN(values: number[], n = TREND_DAYS): number[] {
+  if (values.length <= n) return values;
+  return values.slice(-n);
+}
+
+function deltaFromSeries(series: number[], label = "vs prior 7d"): MetricDelta | undefined {
+  if (series.length < 4) return undefined;
+  const half = Math.floor(series.length / 2);
+  const recent = series.slice(half).reduce((a, b) => a + b, 0);
+  const prior = series.slice(0, half).reduce((a, b) => a + b, 0);
+  if (prior === 0) return undefined;
+  return { value: ((recent - prior) / Math.abs(prior)) * 100, label };
+}
+
+function deltaFromEndpoints(series: number[], label = "vs 14d ago"): MetricDelta | undefined {
+  if (series.length < 2) return undefined;
+  const first = series[0];
+  const last = series[series.length - 1];
+  if (first === 0) return undefined;
+  return { value: ((last - first) / Math.abs(first)) * 100, label };
+}
+
+function lastNDates(n: number): string[] {
+  const dates: string[] = [];
+  const d = new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  for (let i = n - 1; i >= 0; i--) {
+    const day = new Date(d);
+    day.setUTCDate(day.getUTCDate() - i);
+    dates.push(day.toISOString().slice(0, 10));
+  }
+  return dates;
+}
 
 export type CashSnapshot = {
   cashPosition: number | null;
   syncedAt: string | null;
+  trend?: number[];
+  delta?: MetricDelta;
 };
 
 export async function getCashSnapshot(supabase: DB): Promise<CashSnapshot> {
-  const { data } = await supabase
+  const { data: rows } = await supabase
     .from("qb_financials")
-    .select("cash_position, synced_at")
+    .select("cash_position, synced_at, as_of_date")
     .order("as_of_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(TREND_DAYS);
+
+  const ordered = [...(rows ?? [])].reverse();
+  const trend = lastN(ordered.map((r) => r.cash_position ?? 0));
+  const latest = rows?.[0];
 
   return {
-    cashPosition: data?.cash_position ?? null,
-    syncedAt: data?.synced_at ?? null,
+    cashPosition: latest?.cash_position ?? null,
+    syncedAt: latest?.synced_at ?? null,
+    trend: trend.length > 1 ? trend : undefined,
+    delta: deltaFromEndpoints(trend),
   };
 }
 
@@ -28,28 +82,35 @@ export type ArAging = {
   arTotal: number | null;
   buckets: { current: number; d30: number; d60: number; d90: number; over90: number };
   syncedAt: string | null;
+  trend?: number[];
+  delta?: MetricDelta;
 };
 
 export async function getArAging(supabase: DB): Promise<ArAging> {
-  const { data } = await supabase
+  const { data: rows } = await supabase
     .from("qb_financials")
     .select(
-      "ar_total, ar_aging_current, ar_aging_30, ar_aging_60, ar_aging_90, ar_aging_over_90, synced_at",
+      "ar_total, ar_aging_current, ar_aging_30, ar_aging_60, ar_aging_90, ar_aging_over_90, synced_at, as_of_date",
     )
     .order("as_of_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(TREND_DAYS);
+
+  const latest = rows?.[0];
+  const ordered = [...(rows ?? [])].reverse();
+  const trend = lastN(ordered.map((r) => r.ar_total ?? 0));
 
   return {
-    arTotal: data?.ar_total ?? null,
+    arTotal: latest?.ar_total ?? null,
     buckets: {
-      current: data?.ar_aging_current ?? 0,
-      d30: data?.ar_aging_30 ?? 0,
-      d60: data?.ar_aging_60 ?? 0,
-      d90: data?.ar_aging_90 ?? 0,
-      over90: data?.ar_aging_over_90 ?? 0,
+      current: latest?.ar_aging_current ?? 0,
+      d30: latest?.ar_aging_30 ?? 0,
+      d60: latest?.ar_aging_60 ?? 0,
+      d90: latest?.ar_aging_90 ?? 0,
+      over90: latest?.ar_aging_over_90 ?? 0,
     },
-    syncedAt: data?.synced_at ?? null,
+    syncedAt: latest?.synced_at ?? null,
+    trend: trend.length > 1 ? trend : undefined,
+    delta: deltaFromEndpoints(trend),
   };
 }
 
@@ -65,6 +126,10 @@ export type RevenueTrend = {
   totalOrders: number;
   aov: number | null;
   syncedAt: string | null;
+  revenueTrend?: number[];
+  revenueDelta?: MetricDelta;
+  aovTrend?: number[];
+  aovDelta?: MetricDelta;
 };
 
 export async function getRevenueTrend(supabase: DB): Promise<RevenueTrend> {
@@ -85,12 +150,21 @@ export async function getRevenueTrend(supabase: DB): Promise<RevenueTrend> {
       orderCount: r.order_count ?? 0,
     }));
 
+  const revenueTrend = lastN(points.map((p) => p.revenue));
+  const aovTrend = lastN(
+    points.map((p) => (p.orderCount > 0 ? p.revenue / p.orderCount : 0)),
+  );
+
   return {
     points,
     totalRevenue,
     totalOrders,
     aov: totalOrders > 0 ? totalRevenue / totalOrders : null,
     syncedAt: rows[0]?.synced_at ?? null,
+    revenueTrend: revenueTrend.length > 1 ? revenueTrend : undefined,
+    revenueDelta: deltaFromSeries(revenueTrend, "vs prior 7d"),
+    aovTrend: aovTrend.length > 1 ? aovTrend : undefined,
+    aovDelta: deltaFromSeries(aovTrend, "vs prior 7d"),
   };
 }
 
@@ -99,6 +173,8 @@ export type EmailAffiliate = {
   emailRevenue: number;
   affiliateRevenue: number;
   syncedAt: string | null;
+  trend?: number[];
+  delta?: MetricDelta;
 };
 
 export async function getEmailAffiliateRevenue(
@@ -117,11 +193,18 @@ export async function getEmailAffiliateRevenue(
     0,
   );
 
+  const ordered = [...rows].reverse();
+  const daily = lastN(
+    ordered.map((r) => (r.email_revenue ?? 0) + (r.affiliate_revenue ?? 0)),
+  );
+
   return {
     total: emailRevenue + affiliateRevenue,
     emailRevenue,
     affiliateRevenue,
     syncedAt: rows[0]?.synced_at ?? null,
+    trend: daily.length > 1 ? daily : undefined,
+    delta: deltaFromSeries(daily, "vs prior 7d"),
   };
 }
 
@@ -130,6 +213,8 @@ export type WholesalePipeline = {
   openDealCount: number;
   byState: { state: string; amount: number; count: number }[];
   syncedAt: string | null;
+  trend?: number[];
+  delta?: MetricDelta;
 };
 
 export async function getWholesalePipeline(
@@ -137,7 +222,7 @@ export async function getWholesalePipeline(
 ): Promise<WholesalePipeline> {
   const { data } = await supabase
     .from("hubspot_deals")
-    .select("amount, stage, state, synced_at");
+    .select("amount, stage, state, synced_at, close_date");
 
   const rows = data ?? [];
   const open = rows.filter(
@@ -158,11 +243,22 @@ export async function getWholesalePipeline(
     .map(([state, v]) => ({ state, amount: v.amount, count: v.count }))
     .sort((a, b) => b.amount - a.amount);
 
+  const dates = lastNDates(TREND_DAYS);
+  const trend = dates.map((date) =>
+    open.reduce((sum, deal) => {
+      const close = deal.close_date;
+      if (!close || close >= date) return sum + (deal.amount ?? 0);
+      return sum;
+    }, 0),
+  );
+
   return {
     totalOpenAmount,
     openDealCount: open.length,
     byState,
     syncedAt: rows[0]?.synced_at ?? null,
+    trend: trend.some((v) => v > 0) ? trend : undefined,
+    delta: deltaFromEndpoints(trend),
   };
 }
 
@@ -229,17 +325,3 @@ export async function getInProductionCount(
   };
 }
 
-export function formatUsd(n: number | null | undefined, fractionDigits = 0): string {
-  if (n == null) return "—";
-  return n.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: fractionDigits,
-    minimumFractionDigits: fractionDigits,
-  });
-}
-
-export function formatCount(n: number | null | undefined): string {
-  if (n == null) return "—";
-  return n.toLocaleString("en-US");
-}

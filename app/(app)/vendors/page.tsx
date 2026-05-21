@@ -1,10 +1,16 @@
+import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
 import {
   VendorTable,
   type VendorRow,
 } from "@/components/vendors/vendor-table"
 
-export default async function VendorsPage() {
+export default async function VendorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ new?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -40,7 +46,12 @@ export default async function VendorsPage() {
 
   return (
     <div className="space-y-6">
-      <VendorTable vendors={vendors} />
+      <Suspense fallback={null}>
+        <VendorTable
+          vendors={vendors}
+          initialCreateOpen={params.new === "1"}
+        />
+      </Suspense>
     </div>
   )
 }

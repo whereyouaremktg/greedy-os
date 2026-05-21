@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/dialog"
 import { VendorForm } from "@/components/vendors/vendor-form"
 import { deleteVendor } from "@/lib/actions/vendors"
+import { EmptyState, EmptyStateAction } from "@/components/empty-state"
 
 export type VendorRow = {
   id: string
@@ -42,11 +44,29 @@ export type VendorRow = {
   manufacturing_count: number
 }
 
-export function VendorTable({ vendors }: { vendors: VendorRow[] }) {
-  const [createOpen, setCreateOpen] = React.useState(false)
+export function VendorTable({
+  vendors,
+  initialCreateOpen = false,
+}: {
+  vendors: VendorRow[]
+  initialCreateOpen?: boolean
+}) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const [createOpen, setCreateOpen] = React.useState(initialCreateOpen)
   const [editing, setEditing] = React.useState<VendorRow | null>(null)
   const [deleting, setDeleting] = React.useState<VendorRow | null>(null)
   const [deletePending, startDeleteTransition] = React.useTransition()
+
+  const openCreateFromQuery = searchParams.get("new") === "1"
+  const createSheetOpen = createOpen || openCreateFromQuery
+
+  function handleCreateOpenChange(open: boolean) {
+    setCreateOpen(open)
+    if (!open && openCreateFromQuery) {
+      router.replace("/vendors")
+    }
+  }
 
   function handleDelete() {
     if (!deleting) return
@@ -78,6 +98,17 @@ export function VendorTable({ vendors }: { vendors: VendorRow[] }) {
       </div>
 
       <div className="rounded-md border">
+        {vendors.length === 0 ? (
+          <EmptyState
+            title="No vendors yet"
+            description="Add manufacturers and suppliers to link purchase orders and production runs."
+            action={
+              <EmptyStateAction onClick={() => setCreateOpen(true)}>
+                New vendor
+              </EmptyStateAction>
+            }
+          />
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -91,17 +122,7 @@ export function VendorTable({ vendors }: { vendors: VendorRow[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {vendors.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="h-24 text-center text-sm text-muted-foreground"
-                >
-                  No vendors yet. Click &ldquo;New vendor&rdquo; to add one.
-                </TableCell>
-              </TableRow>
-            ) : (
-              vendors.map((vendor) => (
+            {vendors.map((vendor) => (
                 <TableRow
                   key={vendor.id}
                   className="cursor-pointer"
@@ -137,13 +158,13 @@ export function VendorTable({ vendors }: { vendors: VendorRow[] }) {
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
+            ))}
           </TableBody>
         </Table>
+        )}
       </div>
 
-      <Sheet open={createOpen} onOpenChange={setCreateOpen}>
+      <Sheet open={createSheetOpen} onOpenChange={handleCreateOpenChange}>
         <SheetContent className="w-full sm:max-w-md flex flex-col">
           <SheetHeader>
             <SheetTitle>New vendor</SheetTitle>

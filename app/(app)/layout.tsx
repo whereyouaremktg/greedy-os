@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/nav/sidebar";
+import { Topbar } from "@/components/nav/topbar";
+import { ViewTransitionWrapper } from "@/components/providers/view-transition-wrapper";
+import { getGlobalSyncStatus } from "@/lib/dashboard/sync-status";
 
 export default async function AppLayout({
   children,
@@ -16,10 +19,17 @@ export default async function AppLayout({
     redirect("/login");
   }
 
+  const syncStatus = await getGlobalSyncStatus(supabase);
+
   return (
     <div className="flex min-h-screen">
-      <Sidebar email={user.email ?? ""} />
-      <main className="flex-1 p-8 overflow-x-auto">{children}</main>
+      <Sidebar email={user.email ?? ""} syncStatus={syncStatus} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Topbar email={user.email ?? ""} syncStatus={syncStatus} />
+        <main className="flex-1 overflow-x-auto p-5">
+          <ViewTransitionWrapper>{children}</ViewTransitionWrapper>
+        </main>
+      </div>
     </div>
   );
 }
