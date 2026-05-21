@@ -151,6 +151,30 @@ export type Database = {
         }
         Relationships: []
       }
+      connector_credentials: {
+        Row: {
+          connector: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          connector: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: string
+        }
+        Update: {
+          connector?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       hubspot_deals: {
         Row: {
           amount: number | null
