@@ -58,7 +58,11 @@ export default async function LoginPage({
             </Button>
             <p className="text-xs text-muted-foreground text-center">
               Accounts are provisioned by an admin.{" "}
-              <Link href="mailto:paul@corso.com" className="underline">
+              <Link
+                href="mailto:paul@corso.com"
+                className="underline"
+                suppressHydrationWarning
+              >
                 Request access
               </Link>
             </p>

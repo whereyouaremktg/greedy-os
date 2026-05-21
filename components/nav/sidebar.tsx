@@ -58,6 +58,7 @@ export function Sidebar({
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
+              suppressHydrationWarning
             >
               <Icon className="size-4 shrink-0" />
               {label}
@@ -98,6 +99,7 @@ export function Sidebar({
               type="submit"
               className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
               aria-label="Sign out"
+              suppressHydrationWarning
             >
               <LogOut className="size-3.5" />
             </button>

@@ -44,12 +44,18 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  suppressHydrationWarning = true,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  // Default-on hydration suppression because browser extensions (Cursor,
+  // Grammarly, etc.) routinely inject attributes like data-cursor-ref on
+  // interactive elements between SSR and hydration. React only suppresses
+  // mismatches one level deep, so children with real bugs still warn.
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      suppressHydrationWarning={suppressHydrationWarning}
       {...props}
     />
   )

@@ -75,6 +75,7 @@ export function Topbar({
           size="sm"
           className="h-7 gap-1.5 px-2 text-muted-foreground font-normal"
           onClick={() => setOpen(true)}
+          suppressHydrationWarning
         >
           <Search className="size-3.5" />
           <span className="hidden sm:inline text-xs">Search</span>

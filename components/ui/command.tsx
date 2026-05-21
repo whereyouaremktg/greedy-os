@@ -50,8 +50,10 @@ function CommandDialog({
   return (
     <Dialog {...props}>
       <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
+        <DialogTitle suppressHydrationWarning>{title}</DialogTitle>
+        <DialogDescription suppressHydrationWarning>
+          {description}
+        </DialogDescription>
       </DialogHeader>
       <DialogContent
         className={cn(

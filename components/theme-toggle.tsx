@@ -21,6 +21,7 @@ export function ThemeToggle() {
         className="size-7 shrink-0"
         aria-label="Toggle theme"
         disabled
+        suppressHydrationWarning
       >
         <span className="size-4" />
       </Button>
@@ -36,6 +37,7 @@ export function ThemeToggle() {
       className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       onClick={() => setTheme(isDark ? "light" : "dark")}
+      suppressHydrationWarning
     >
       {isDark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
     </Button>
