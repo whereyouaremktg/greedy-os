@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminApiClient } from "@shopify/admin-api-client";
+import { resolveShopifyAccessToken } from "@/lib/shopify/access-token";
 import { createServiceClient } from "@/lib/supabase/service";
 
 const WINDOW_DAYS = 30;
@@ -255,18 +256,14 @@ async function aggregateDay(
 }
 
 export async function runShopifyPull(): Promise<{ ok: true; rows: number }> {
-  const domain = process.env.SHOPIFY_STORE_DOMAIN;
-  const accessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+  const domain = process.env.SHOPIFY_STORE_DOMAIN?.trim();
   if (!domain) {
     throw new Error(
       "Shopify credentials missing: SHOPIFY_STORE_DOMAIN is not set",
     );
   }
-  if (!accessToken) {
-    throw new Error(
-      "Shopify credentials missing: SHOPIFY_ADMIN_ACCESS_TOKEN is not set",
-    );
-  }
+
+  const accessToken = await resolveShopifyAccessToken(domain);
 
   const client = createAdminApiClient({
     storeDomain: domain,
