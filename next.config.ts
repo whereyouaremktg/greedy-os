@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Pin Turbopack to this project — silences the "multiple lockfiles detected"
+  // warning when there's an unrelated lockfile higher up the filesystem.
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
 };
 
 export default nextConfig;
