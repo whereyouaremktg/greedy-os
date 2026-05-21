@@ -20,6 +20,7 @@ import {
   Moon,
   Sun,
   Plus,
+  Settings,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -38,6 +39,7 @@ const PAGES = [
   { href: "/purchase-orders", label: "Purchase Orders", icon: FileText },
   { href: "/manufacturing", label: "Manufacturing", icon: Factory },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+  { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
 type CommandPaletteContextValue = {

@@ -2,6 +2,7 @@ import "server-only";
 import { Client } from "@hubspot/api-client";
 import type { SimplePublicObjectWithAssociations as DealWithAssociations } from "@hubspot/api-client/lib/codegen/crm/deals";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getCredential, requireCredential } from "@/lib/connectors/credentials";
 
 // HubSpot deal properties we always want, in addition to the discovered geo property.
 const DEAL_PROPERTIES = [
@@ -29,7 +30,7 @@ const GEO_EXACT_CANDIDATES = [
 const GEO_FUZZY_KEYWORDS = ["state", "region", "territory"];
 
 async function discoverGeoProperty(client: Client): Promise<string> {
-  const override = process.env.HUBSPOT_DEAL_GEO_PROPERTY?.trim();
+  const override = (await getCredential("hubspot", "HUBSPOT_DEAL_GEO_PROPERTY"))?.trim();
   if (override) return override;
 
   const result = await client.crm.properties.coreApi.getAll("deals", false);
@@ -123,14 +124,12 @@ function firstAssociatedCompanyId(
 }
 
 export async function runHubspotPull() {
-  const token = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
-  if (!token) {
-    throw new Error(
-      "HUBSPOT_PRIVATE_APP_TOKEN is not set. Create a HubSpot Private App " +
-        "with scopes crm.objects.deals.read, crm.objects.companies.read, " +
-        "crm.objects.owners.read, crm.schemas.deals.read and add the token to env.",
-    );
-  }
+  const token = await requireCredential(
+    "hubspot",
+    "HUBSPOT_PRIVATE_APP_TOKEN",
+    "Create a HubSpot Private App with scopes crm.objects.deals.read, " +
+      "crm.objects.companies.read, crm.objects.owners.read, crm.schemas.deals.read.",
+  );
 
   const client = new Client({ accessToken: token });
   const supabase = createServiceClient();
