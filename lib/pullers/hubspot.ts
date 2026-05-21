@@ -1,71 +1,211 @@
+import "server-only";
+import { Client } from "@hubspot/api-client";
+import type { SimplePublicObjectWithAssociations as DealWithAssociations } from "@hubspot/api-client/lib/codegen/crm/deals";
 import { createServiceClient } from "@/lib/supabase/service";
-import { seedInt, seedNumber } from "./_mock";
 
-const STAGES = [
-  "prospecting",
-  "qualified",
-  "proposal",
-  "negotiation",
-  "closed_won",
-  "closed_lost",
-] as const;
-
-const ACCOUNTS = [
-  { company: "Alpine Apothecary", state: "UT", owner: "Marissa" },
-  { company: "Wasatch Skin Co.", state: "UT", owner: "Marissa" },
-  { company: "Park City Boutique", state: "UT", owner: "Paul" },
-  { company: "SLC Wellness Market", state: "UT", owner: "Marissa" },
-  { company: "Provo Beauty Hub", state: "UT", owner: "Paul" },
-  { company: "Boulder Spa Collective", state: "CO", owner: "Marissa" },
-  { company: "Denver Co-op Beauty", state: "CO", owner: "Paul" },
-  { company: "Aspen Skin Lounge", state: "CO", owner: "Marissa" },
-  { company: "Phoenix Glow Bar", state: "AZ", owner: "Paul" },
-  { company: "Sedona Spa Group", state: "AZ", owner: "Marissa" },
-  { company: "Vegas Strip Beauty", state: "NV", owner: "Paul" },
-  { company: "Reno Wellness Market", state: "NV", owner: "Marissa" },
-  { company: "Pasadena Apothecary", state: "CA", owner: "Paul" },
-  { company: "Venice Skin House", state: "CA", owner: "Marissa" },
-  { company: "Oakland Co-op Skin", state: "CA", owner: "Paul" },
-  { company: "Portland Skin Lab", state: "OR", owner: "Marissa" },
-  { company: "Bend Beauty Outpost", state: "OR", owner: "Paul" },
-  { company: "Seattle Glow Studio", state: "WA", owner: "Marissa" },
-  { company: "Bozeman Botanicals", state: "MT", owner: "Paul" },
-  { company: "Jackson Hole Spa", state: "WY", owner: "Marissa" },
+// HubSpot deal properties we always want, in addition to the discovered geo property.
+const DEAL_PROPERTIES = [
+  "dealname",
+  "amount",
+  "dealstage",
+  "closedate",
+  "hubspot_owner_id",
+  "hs_object_id",
 ];
 
-// STUB: deterministic mock HubSpot wholesale pipeline (20 deals).
-// Replace with real HubSpot Deals API (`/crm/v3/objects/deals`) when wired.
+// Preferred exact-name candidates for the deal-level geo (state) property.
+// Order matters: first match wins.
+const GEO_EXACT_CANDIDATES = [
+  "state",
+  "state_region",
+  "region",
+  "territory",
+  "deal_state",
+  "shipping_state",
+  "billing_state",
+];
+
+// Keywords used for the fuzzy fallback when no exact-name candidate exists.
+const GEO_FUZZY_KEYWORDS = ["state", "region", "territory"];
+
+async function discoverGeoProperty(client: Client): Promise<string> {
+  const override = process.env.HUBSPOT_DEAL_GEO_PROPERTY?.trim();
+  if (override) return override;
+
+  const result = await client.crm.properties.coreApi.getAll("deals", false);
+  const names = result.results
+    .filter((p) => !p.archived)
+    .map((p) => ({ name: p.name, label: p.label ?? "" }));
+
+  // 1. Exact match in priority order.
+  for (const candidate of GEO_EXACT_CANDIDATES) {
+    if (names.some((p) => p.name === candidate)) return candidate;
+  }
+
+  // 2. Fuzzy match on name or label — only if it's unambiguous (single hit).
+  const fuzzy = names.filter((p) =>
+    GEO_FUZZY_KEYWORDS.some(
+      (kw) =>
+        p.name.toLowerCase().includes(kw) ||
+        p.label.toLowerCase().includes(kw),
+    ),
+  );
+  if (fuzzy.length === 1) return fuzzy[0].name;
+
+  const candidates = fuzzy.map((p) => `${p.name} ("${p.label}")`).join(", ");
+  throw new Error(
+    `No deal-level geo property found on HubSpot deals. ` +
+      (fuzzy.length > 1
+        ? `Multiple ambiguous candidates: ${candidates}. `
+        : `No candidate matched names ${JSON.stringify(GEO_EXACT_CANDIDATES)} or keywords ${JSON.stringify(GEO_FUZZY_KEYWORDS)}. `) +
+      `Add a "state" property to deals in HubSpot or set HUBSPOT_DEAL_GEO_PROPERTY env var.`,
+  );
+}
+
+async function loadOwners(client: Client): Promise<Map<string, string>> {
+  const owners = new Map<string, string>();
+  let after: string | undefined;
+  do {
+    const page = await client.crm.owners.ownersApi.getPage(
+      undefined,
+      after,
+      100,
+      false,
+    );
+    for (const owner of page.results) {
+      const fullName = [owner.firstName, owner.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      owners.set(owner.id, fullName || owner.email || owner.id);
+    }
+    after = page.paging?.next?.after;
+  } while (after);
+  return owners;
+}
+
+async function loadCompanyNames(
+  client: Client,
+  companyIds: string[],
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  for (let i = 0; i < companyIds.length; i += 100) {
+    const chunk = companyIds.slice(i, i + 100);
+    const result = await client.crm.companies.batchApi.read({
+      properties: ["name"],
+      propertiesWithHistory: [],
+      inputs: chunk.map((id) => ({ id })),
+    });
+    for (const c of result.results) {
+      const n = c.properties.name?.trim();
+      if (n) names.set(c.id, n);
+    }
+  }
+  return names;
+}
+
+function parseAmount(raw: string | null | undefined): number | null {
+  if (raw == null || raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseCloseDate(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  // HubSpot returns date-typed properties as ISO timestamps; slice to YYYY-MM-DD.
+  return raw.slice(0, 10);
+}
+
+function firstAssociatedCompanyId(
+  deal: DealWithAssociations,
+): string | undefined {
+  return deal.associations?.companies?.results?.[0]?.id;
+}
+
 export async function runHubspotPull() {
+  const token = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
+  if (!token) {
+    throw new Error(
+      "HUBSPOT_PRIVATE_APP_TOKEN is not set. Create a HubSpot Private App " +
+        "with scopes crm.objects.deals.read, crm.objects.companies.read, " +
+        "crm.objects.owners.read, crm.schemas.deals.read and add the token to env.",
+    );
+  }
+
+  const client = new Client({ accessToken: token });
   const supabase = createServiceClient();
   const now = new Date().toISOString();
-  const today = new Date();
 
-  const rows = ACCOUNTS.map((acct, i) => {
-    const id = `deal_${String(i + 1).padStart(3, "0")}`;
-    const k = (suffix: string) => `hubspot:${id}:${suffix}`;
-    const stage = STAGES[seedInt(k("stage"), 0, STAGES.length - 1)];
-    const amount = seedNumber(k("amt"), 4000, 75000);
-    const closeOffset = seedInt(k("close"), -45, 90);
-    const close = new Date(today);
-    close.setUTCDate(close.getUTCDate() + closeOffset);
+  const geoProperty = await discoverGeoProperty(client);
+  const owners = await loadOwners(client);
 
+  const requestedProperties = Array.from(
+    new Set([...DEAL_PROPERTIES, geoProperty]),
+  );
+
+  // Paginate every (non-archived) deal, asking for associated companies so we
+  // can resolve a single company name per deal.
+  const deals: DealWithAssociations[] = await client.crm.deals.getAll(
+    100,
+    undefined,
+    requestedProperties,
+    undefined,
+    ["companies"],
+    false,
+  );
+
+  const companyIds = Array.from(
+    new Set(
+      deals
+        .map(firstAssociatedCompanyId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const companyNames = await loadCompanyNames(client, companyIds);
+
+  const rows = deals.map((deal) => {
+    const props = deal.properties;
+    const ownerId = props.hubspot_owner_id ?? "";
+    const companyId = firstAssociatedCompanyId(deal);
     return {
-      id,
-      deal_name: `${acct.company} — Q${seedInt(k("q"), 1, 4)} order`,
-      company: acct.company,
-      stage,
-      amount,
-      state: acct.state,
-      owner: acct.owner,
-      close_date: close.toISOString().slice(0, 10),
+      id: deal.id,
+      deal_name: props.dealname?.trim() || "(untitled)",
+      company: companyId ? (companyNames.get(companyId) ?? null) : null,
+      stage: props.dealstage ?? "",
+      amount: parseAmount(props.amount),
+      state: props[geoProperty]?.trim() || null,
+      owner: ownerId ? (owners.get(ownerId) ?? null) : null,
+      close_date: parseCloseDate(props.closedate),
       synced_at: now,
     };
   });
 
-  const { error } = await supabase
-    .from("hubspot_deals")
-    .upsert(rows, { onConflict: "id" });
+  if (rows.length > 0) {
+    const { error } = await supabase
+      .from("hubspot_deals")
+      .upsert(rows, { onConflict: "id" });
+    if (error) throw new Error(`hubspot_deals upsert: ${error.message}`);
+  }
 
-  if (error) throw new Error(`hubspot_deals upsert: ${error.message}`);
-  return { ok: true, rows: rows.length };
+  // Stale-row delete: anything in the cache that wasn't in this pull is gone
+  // from HubSpot (closed/archived/deleted) and shouldn't keep showing up in
+  // dashboard tiles.
+  const currentIds = new Set(rows.map((r) => r.id));
+  const { data: existing, error: selErr } = await supabase
+    .from("hubspot_deals")
+    .select("id");
+  if (selErr) throw new Error(`hubspot_deals select: ${selErr.message}`);
+  const staleIds = (existing ?? [])
+    .map((r) => r.id)
+    .filter((id) => !currentIds.has(id));
+  if (staleIds.length > 0) {
+    const { error: delErr } = await supabase
+      .from("hubspot_deals")
+      .delete()
+      .in("id", staleIds);
+    if (delErr)
+      throw new Error(`hubspot_deals delete stale: ${delErr.message}`);
+  }
+
+  return { ok: true, rows: rows.length, geo_property: geoProperty };
 }
