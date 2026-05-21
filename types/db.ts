@@ -508,6 +508,33 @@ export type Database = {
         }
         Relationships: []
       }
+      slack_notifications: {
+        Row: {
+          channel: string
+          dedupe_key: string
+          id: string
+          message_ts: string | null
+          payload: Json
+          sent_at: string
+        }
+        Insert: {
+          channel: string
+          dedupe_key: string
+          id?: string
+          message_ts?: string | null
+          payload: Json
+          sent_at?: string
+        }
+        Update: {
+          channel?: string
+          dedupe_key?: string
+          id?: string
+          message_ts?: string | null
+          payload?: Json
+          sent_at?: string
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           contact_name: string | null
