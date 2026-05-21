@@ -15,6 +15,7 @@ const ROUTE_LABELS: Record<string, string> = {
   "/purchase-orders": "Purchase Orders",
   "/manufacturing": "Manufacturing",
   "/campaigns": "Campaigns",
+  "/settings": "Settings",
 };
 
 function breadcrumbLabel(pathname: string): string {
@@ -64,6 +65,7 @@ export function Topbar({
             "hidden sm:inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground",
             syncStatus.isStale && "border-warning/40 text-warning",
           )}
+          suppressHydrationWarning
         >
           {syncPillLabel(syncStatus)}
         </span>

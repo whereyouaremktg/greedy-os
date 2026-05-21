@@ -9,6 +9,7 @@ import {
   Megaphone,
   Building2,
   LogOut,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -20,6 +21,7 @@ const NAV = [
   { href: "/manufacturing", label: "Manufacturing", icon: Factory },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/vendors", label: "Vendors", icon: Building2 },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar({
@@ -75,7 +77,10 @@ export function Sidebar({
             )}
             aria-hidden
           />
-          <span className="text-[11px] text-muted-foreground leading-tight">
+          <span
+            className="text-[11px] text-muted-foreground leading-tight"
+            suppressHydrationWarning
+          >
             {syncStatus.label}
           </span>
         </div>

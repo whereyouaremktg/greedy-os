@@ -243,7 +243,10 @@ export function KpiTile({
           </p>
         ) : null}
         {syncLabel ? (
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-2">
+          <p
+            className="text-[10px] uppercase tracking-wide text-muted-foreground mt-2"
+            suppressHydrationWarning
+          >
             {syncLabel}
           </p>
         ) : null}
