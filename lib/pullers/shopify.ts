@@ -1,36 +1,310 @@
+import "server-only";
+import { createAdminApiClient } from "@shopify/admin-api-client";
 import { createServiceClient } from "@/lib/supabase/service";
-import { lastNDates, seedInt, seedNumber } from "./_mock";
 
-const TOP_SKUS = [
-  { sku: "GLOW-CL-01", name: "Glow Daily Cleanser" },
-  { sku: "GLOW-SR-02", name: "Brightening Serum" },
-  { sku: "GLOW-MO-03", name: "Hydrating Moisturizer" },
-  { sku: "GLOW-MA-04", name: "Clay Mask" },
-  { sku: "GLOW-OL-05", name: "Rosehip Facial Oil" },
-];
+const WINDOW_DAYS = 30;
+const ORDERS_PAGE_SIZE = 50;
+const LINE_ITEMS_PAGE_SIZE = 25;
+const MAX_THROTTLE_RETRIES = 5;
+const API_VERSION = "2026-01";
 
-// STUB: deterministic mock Shopify DTC metrics for the last 30 days.
-// Replace with real Admin API (orders.list, products.list) when wired.
-export async function runShopifyPull() {
-  const supabase = createServiceClient();
-  const now = new Date().toISOString();
+const ORDERS_QUERY = /* GraphQL */ `
+  query GlowOsOrdersByDay(
+    $query: String!
+    $cursor: String
+    $first: Int!
+    $liFirst: Int!
+  ) {
+    orders(first: $first, after: $cursor, query: $query, sortKey: CREATED_AT) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        id
+        createdAt
+        subtotalPriceSet {
+          shopMoney {
+            amount
+          }
+        }
+        lineItems(first: $liFirst) {
+          pageInfo {
+            hasNextPage
+          }
+          nodes {
+            sku
+            name
+            title
+            quantity
+            discountedTotalSet {
+              shopMoney {
+                amount
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
 
-  const rows = lastNDates(30).map((as_of_date) => {
-    const k = (suffix: string) => `shopify:${as_of_date}:${suffix}`;
-    const revenue = seedNumber(k("rev"), 6000, 15000);
-    const order_count = seedInt(k("orders"), 60, 180);
-    const aov = Math.round((revenue / order_count) * 100) / 100;
+type ShopMoney = { amount: string };
+type LineItemNode = {
+  sku: string | null;
+  name: string | null;
+  title: string | null;
+  quantity: number;
+  discountedTotalSet: { shopMoney: ShopMoney } | null;
+};
+type OrderNode = {
+  id: string;
+  createdAt: string;
+  subtotalPriceSet: { shopMoney: ShopMoney } | null;
+  lineItems: {
+    pageInfo: { hasNextPage: boolean };
+    nodes: LineItemNode[];
+  };
+};
+type OrdersQueryData = {
+  orders: {
+    pageInfo: { hasNextPage: boolean; endCursor: string | null };
+    nodes: OrderNode[];
+  };
+};
 
-    const top_products = TOP_SKUS.map((p, i) => ({
+type ThrottleStatus = {
+  maximumAvailable: number;
+  currentlyAvailable: number;
+  restoreRate: number;
+};
+type QueryCost = {
+  requestedQueryCost: number;
+  actualQueryCost: number | null;
+  throttleStatus: ThrottleStatus;
+};
+
+type TopProduct = {
+  sku: string | null;
+  name: string;
+  revenue: number;
+  units: number;
+};
+
+type ShopifyMetricsRow = {
+  as_of_date: string;
+  revenue: number;
+  order_count: number;
+  aov: number;
+  top_products: TopProduct[];
+  synced_at: string;
+};
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function startOfUtcDay(date: Date): Date {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
+function isoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function isThrottledError(errors: unknown): boolean {
+  if (!errors || typeof errors !== "object") return false;
+  const e = errors as {
+    message?: string;
+    graphQLErrors?: Array<{ extensions?: { code?: string } } | undefined>;
+  };
+  if (e.message && /throttle/i.test(e.message)) return true;
+  return Boolean(
+    e.graphQLErrors?.some((g) => g?.extensions?.code === "THROTTLED"),
+  );
+}
+
+function extractCost(extensions: unknown): QueryCost | null {
+  if (!extensions || typeof extensions !== "object") return null;
+  const ext = extensions as { cost?: QueryCost };
+  return ext.cost ?? null;
+}
+
+async function requestOrdersPage(
+  client: ReturnType<typeof createAdminApiClient>,
+  variables: {
+    query: string;
+    cursor: string | null;
+    first: number;
+    liFirst: number;
+  },
+): Promise<{ data: OrdersQueryData; cost: QueryCost | null }> {
+  for (let attempt = 0; attempt <= MAX_THROTTLE_RETRIES; attempt++) {
+    const res = await client.request<OrdersQueryData>(ORDERS_QUERY, {
+      variables,
+    });
+
+    if (res.errors) {
+      if (isThrottledError(res.errors) && attempt < MAX_THROTTLE_RETRIES) {
+        const wait = Math.min(1_000 * 2 ** attempt, 30_000);
+        await sleep(wait);
+        continue;
+      }
+      throw new Error(
+        `Shopify orders query failed: ${res.errors.message ?? JSON.stringify(res.errors.graphQLErrors ?? res.errors)}`,
+      );
+    }
+    if (!res.data) {
+      throw new Error("Shopify orders query returned no data");
+    }
+    return { data: res.data, cost: extractCost(res.extensions) };
+  }
+  throw new Error("Shopify orders query exhausted throttle retries");
+}
+
+async function waitForBudget(cost: QueryCost | null): Promise<void> {
+  if (!cost) return;
+  const { currentlyAvailable, restoreRate } = cost.throttleStatus;
+  const headroom = cost.requestedQueryCost;
+  if (currentlyAvailable >= headroom) return;
+  const need = headroom - currentlyAvailable;
+  const waitMs = Math.ceil((need / Math.max(restoreRate, 1)) * 1000);
+  await sleep(Math.min(waitMs, 10_000));
+}
+
+async function aggregateDay(
+  client: ReturnType<typeof createAdminApiClient>,
+  dayStart: Date,
+  dayEnd: Date,
+): Promise<{
+  revenue: number;
+  orderCount: number;
+  topProducts: TopProduct[];
+}> {
+  const queryStr = `created_at:>='${dayStart.toISOString()}' created_at:<'${dayEnd.toISOString()}'`;
+
+  let cursor: string | null = null;
+  let revenue = 0;
+  let orderCount = 0;
+  const productTotals = new Map<string, TopProduct>();
+
+  while (true) {
+    const { data, cost } = await requestOrdersPage(client, {
+      query: queryStr,
+      cursor,
+      first: ORDERS_PAGE_SIZE,
+      liFirst: LINE_ITEMS_PAGE_SIZE,
+    });
+
+    for (const order of data.orders.nodes) {
+      const subtotal = parseFloat(
+        order.subtotalPriceSet?.shopMoney?.amount ?? "0",
+      );
+      if (Number.isFinite(subtotal)) revenue += subtotal;
+      orderCount += 1;
+
+      for (const li of order.lineItems?.nodes ?? []) {
+        const sku = li.sku?.trim() || null;
+        const name = li.name || li.title || "(unknown)";
+        const key = sku ?? `name:${name}`;
+        const lineRev = parseFloat(
+          li.discountedTotalSet?.shopMoney?.amount ?? "0",
+        );
+        const safeRev = Number.isFinite(lineRev) ? lineRev : 0;
+        const safeUnits = Number.isFinite(li.quantity) ? li.quantity : 0;
+
+        const existing = productTotals.get(key);
+        if (existing) {
+          existing.revenue += safeRev;
+          existing.units += safeUnits;
+        } else {
+          productTotals.set(key, {
+            sku,
+            name,
+            revenue: safeRev,
+            units: safeUnits,
+          });
+        }
+      }
+    }
+
+    if (!data.orders.pageInfo.hasNextPage) break;
+    cursor = data.orders.pageInfo.endCursor;
+    if (!cursor) break;
+
+    await waitForBudget(cost);
+  }
+
+  const topProducts = [...productTotals.values()]
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5)
+    .map((p) => ({
       sku: p.sku,
       name: p.name,
-      revenue: seedNumber(k(`p${i}rev`), 600, 3000),
-      units: seedInt(k(`p${i}units`), 8, 80),
+      revenue: round2(p.revenue),
+      units: p.units,
     }));
 
-    return { as_of_date, revenue, order_count, aov, top_products, synced_at: now };
+  return { revenue, orderCount, topProducts };
+}
+
+export async function runShopifyPull(): Promise<{ ok: true; rows: number }> {
+  const domain = process.env.SHOPIFY_STORE_DOMAIN;
+  const accessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+  if (!domain) {
+    throw new Error(
+      "Shopify credentials missing: SHOPIFY_STORE_DOMAIN is not set",
+    );
+  }
+  if (!accessToken) {
+    throw new Error(
+      "Shopify credentials missing: SHOPIFY_ADMIN_ACCESS_TOKEN is not set",
+    );
+  }
+
+  const client = createAdminApiClient({
+    storeDomain: domain,
+    apiVersion: API_VERSION,
+    accessToken,
+    retries: 2,
   });
 
+  const today = startOfUtcDay(new Date());
+  const syncedAt = new Date().toISOString();
+  const rows: ShopifyMetricsRow[] = [];
+
+  for (let i = 0; i < WINDOW_DAYS; i++) {
+    const dayStart = new Date(today);
+    dayStart.setUTCDate(dayStart.getUTCDate() - i);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+
+    const { revenue, orderCount, topProducts } = await aggregateDay(
+      client,
+      dayStart,
+      dayEnd,
+    );
+
+    const roundedRevenue = round2(revenue);
+    const aov = orderCount > 0 ? round2(roundedRevenue / orderCount) : 0;
+
+    rows.push({
+      as_of_date: isoDate(dayStart),
+      revenue: roundedRevenue,
+      order_count: orderCount,
+      aov,
+      top_products: topProducts,
+      synced_at: syncedAt,
+    });
+  }
+
+  const supabase = createServiceClient();
   const { error } = await supabase
     .from("shopify_metrics")
     .upsert(rows, { onConflict: "as_of_date" });
