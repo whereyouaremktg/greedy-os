@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
 import {
   isConnectorId,
   isKnownConnectorKey,
+  setCredentials,
+  deleteCredentials,
+  QUICKBOOKS_OAUTH_RUNTIME_KEYS,
   type ConnectorId,
 } from "@/lib/connectors/credentials";
 
@@ -33,39 +35,27 @@ export async function saveConnectorCredentials(
   }
   const connectorId: ConnectorId = connector;
 
-  await requireAuthedUser();
+  const user = await requireAuthedUser();
 
-  const entries = Object.entries(payload).filter(([key]) =>
-    isKnownConnectorKey(connectorId, key),
-  );
-  const upserts: { connector: ConnectorId; key: string; value: string }[] = [];
+  const upserts: Record<string, string> = {};
   const deletes: string[] = [];
-  for (const [key, raw] of entries) {
-    const value = raw.trim();
-    if (value.length > 0) upserts.push({ connector: connectorId, key, value });
+  for (const [key, raw] of Object.entries(payload)) {
+    if (!isKnownConnectorKey(connectorId, key)) continue;
+    const value = typeof raw === "string" ? raw.trim() : "";
+    if (value.length > 0) upserts[key] = value;
     else deletes.push(key);
   }
 
-  const service = createServiceClient();
-
-  if (upserts.length > 0) {
-    const { error } = await service
-      .from("connector_credentials")
-      .upsert(upserts, { onConflict: "connector,key" });
-    if (error) {
-      return { ok: false, error: `Save failed: ${error.message}` };
+  try {
+    if (Object.keys(upserts).length > 0) {
+      await setCredentials(connectorId, upserts, user.id);
     }
-  }
-
-  if (deletes.length > 0) {
-    const { error } = await service
-      .from("connector_credentials")
-      .delete()
-      .eq("connector", connectorId)
-      .in("key", deletes);
-    if (error) {
-      return { ok: false, error: `Clear failed: ${error.message}` };
+    if (deletes.length > 0) {
+      await deleteCredentials(connectorId, deletes);
     }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
   }
 
   revalidatePath("/settings");
@@ -73,23 +63,35 @@ export async function saveConnectorCredentials(
 }
 
 // Disconnect: remove every stored row for this connector. Vercel env vars
-// (if set) keep providing values — the UI will then show "Env" instead of
-// "Saved".
+// (if set, for non-QuickBooks connectors) keep providing values — the UI
+// will then show "Env" instead of "Saved".
 export async function clearConnector(connector: string): Promise<ActionResult> {
   if (!isConnectorId(connector)) {
     return { ok: false, error: `Unknown connector: ${connector}` };
   }
-  const connectorId: ConnectorId = connector;
-
   await requireAuthedUser();
 
-  const service = createServiceClient();
-  const { error } = await service
-    .from("connector_credentials")
-    .delete()
-    .eq("connector", connectorId);
-  if (error) {
-    return { ok: false, error: `Disconnect failed: ${error.message}` };
+  try {
+    await deleteCredentials(connector);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
+  }
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+// QuickBooks-specific disconnect: wipes only the OAuth-runtime rows so the
+// user can reconnect without re-pasting client_id / client_secret / env.
+export async function disconnectQuickbooks(): Promise<ActionResult> {
+  await requireAuthedUser();
+
+  try {
+    await deleteCredentials("quickbooks", [...QUICKBOOKS_OAUTH_RUNTIME_KEYS]);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
   }
 
   revalidatePath("/settings");

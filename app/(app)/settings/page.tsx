@@ -1,24 +1,31 @@
 import {
   CONNECTORS,
   getConnectorStatus,
+  getQuickbooksConnectionState,
 } from "@/lib/connectors/credentials";
 import { ConnectorCard } from "@/components/settings/connector-card";
+import { QuickbooksCard } from "@/components/settings/quickbooks-card";
+import { QbResultToast } from "@/components/settings/qb-result-toast";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const statuses = await Promise.all(
-    CONNECTORS.map(async (c) => ({
-      id: c.id,
-      label: c.label,
-      description: c.description,
-      fields: c.fields,
-      statuses: await getConnectorStatus(c.id),
-    })),
-  );
+  const [statuses, qbState] = await Promise.all([
+    Promise.all(
+      CONNECTORS.map(async (c) => ({
+        id: c.id,
+        label: c.label,
+        description: c.description,
+        fields: c.fields,
+        statuses: await getConnectorStatus(c.id),
+      })),
+    ),
+    getQuickbooksConnectionState(),
+  ]);
 
   return (
     <div className="space-y-6">
+      <QbResultToast />
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">
@@ -30,16 +37,28 @@ export default async function SettingsPage() {
       </header>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        {statuses.map((c) => (
-          <ConnectorCard
-            key={c.id}
-            id={c.id}
-            label={c.label}
-            description={c.description}
-            fields={c.fields}
-            statuses={c.statuses}
-          />
-        ))}
+        {statuses.map((c) =>
+          c.id === "quickbooks" ? (
+            <QuickbooksCard
+              key={c.id}
+              id="quickbooks"
+              label={c.label}
+              description={c.description}
+              fields={c.fields}
+              statuses={c.statuses}
+              state={qbState}
+            />
+          ) : (
+            <ConnectorCard
+              key={c.id}
+              id={c.id}
+              label={c.label}
+              description={c.description}
+              fields={c.fields}
+              statuses={c.statuses}
+            />
+          ),
+        )}
       </section>
     </div>
   );
