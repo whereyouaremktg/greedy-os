@@ -106,6 +106,13 @@ function CommandPaletteDialog() {
             Create purchase order
           </CommandItem>
           <CommandItem
+            value="Create run"
+            onSelect={() => run(() => router.push("/manufacturing?new=1"))}
+          >
+            <Plus className="size-4 text-muted-foreground" />
+            Create run
+          </CommandItem>
+          <CommandItem
             value="Create campaign"
             onSelect={() => run(() => router.push("/campaigns?new=1"))}
           >
