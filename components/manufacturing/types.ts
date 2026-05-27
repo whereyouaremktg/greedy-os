@@ -4,6 +4,7 @@ export type ManufacturingRunRow = {
   id: string;
   vendor_id: string;
   purchase_order_id: string | null;
+  product_id: string | null;
   product_name: string;
   variant: string | null;
   quantity: number;
@@ -16,6 +17,12 @@ export type ManufacturingRunRow = {
   created_at: string;
   updated_at: string;
   vendor_name: string;
+};
+
+export type ProductOption = {
+  id: string;
+  name: string;
+  sku: string | null;
 };
 
 export type VendorOption = {

@@ -8,6 +8,7 @@ import {
   Factory,
   Megaphone,
   Building2,
+  Package,
   LogOut,
   Settings,
 } from "lucide-react";
@@ -21,6 +22,7 @@ const NAV = [
   { href: "/manufacturing", label: "Manufacturing", icon: Factory },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/vendors", label: "Vendors", icon: Building2 },
+  { href: "/products", label: "Products", icon: Package },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

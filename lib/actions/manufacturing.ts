@@ -56,6 +56,7 @@ const optionalUuid = z
 export const runSchema = z.object({
   vendor_id: z.string().uuid("Select a vendor"),
   purchase_order_id: optionalUuid,
+  product_id: optionalUuid,
   product_name: z
     .string()
     .max(200)

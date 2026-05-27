@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export async function buildGlowContext(supabase: SupabaseClient) {
   const [
     vendors,
+    products,
     purchaseOrders,
     poPayments,
     manufacturing,
@@ -19,6 +20,12 @@ export async function buildGlowContext(supabase: SupabaseClient) {
     hubspot,
   ] = await Promise.all([
     supabase.from("vendors").select("id,name").limit(100),
+    supabase
+      .from("products")
+      .select("id,name,sku,category,active")
+      .eq("active", true)
+      .order("name", { ascending: true })
+      .limit(200),
     supabase
       .from("purchase_orders")
       .select(
@@ -34,7 +41,7 @@ export async function buildGlowContext(supabase: SupabaseClient) {
     supabase
       .from("manufacturing_runs")
       .select(
-        "id,vendor_id,purchase_order_id,product_name,variant,quantity,stage,expected_completion_date,expected_arrival_date,actual_completion_date,actual_arrival_date",
+        "id,vendor_id,purchase_order_id,product_id,product_name,variant,quantity,stage,expected_completion_date,expected_arrival_date,actual_completion_date,actual_arrival_date",
       )
       .limit(100),
     supabase
@@ -64,6 +71,7 @@ export async function buildGlowContext(supabase: SupabaseClient) {
     generated_at: new Date().toISOString(),
     owned: {
       vendors: vendors.data ?? [],
+      products: products.data ?? [],
       purchase_orders: purchaseOrders.data ?? [],
       po_payments: poPayments.data ?? [],
       manufacturing_runs: manufacturing.data ?? [],

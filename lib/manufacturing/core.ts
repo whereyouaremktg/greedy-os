@@ -15,6 +15,7 @@ export type CoreResult<T> =
 export type CreateRunInput = {
   vendor_id: string;
   purchase_order_id?: string | null;
+  product_id?: string | null;
   product_name: string;
   variant?: string | null;
   quantity: number;
@@ -53,6 +54,7 @@ export async function createRunCore(
   const row: Database["public"]["Tables"]["manufacturing_runs"]["Insert"] = {
     vendor_id: input.vendor_id,
     purchase_order_id: input.purchase_order_id ?? null,
+    product_id: input.product_id ?? null,
     product_name: input.product_name,
     variant: input.variant ?? null,
     quantity: input.quantity,
@@ -194,6 +196,7 @@ export async function updateRunCore(
   const patch: Database["public"]["Tables"]["manufacturing_runs"]["Update"] = {
     vendor_id: input.vendor_id,
     purchase_order_id: input.purchase_order_id ?? null,
+    product_id: input.product_id ?? null,
     product_name: input.product_name,
     variant: input.variant ?? null,
     quantity: input.quantity,

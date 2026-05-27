@@ -6,9 +6,19 @@ export type GlowToolResult<T> =
 
 export type VendorListItem = { id: string; name: string };
 
+export type ProductListItem = {
+  id: string;
+  name: string;
+  sku: string | null;
+  category: string | null;
+  active: boolean;
+};
+
 export type RunListItem = {
   id: string;
+  product_id: string | null;
   product_name: string;
+  product_sku: string | null;
   variant: string | null;
   quantity: number;
   stage: string;
@@ -19,7 +29,9 @@ export type RunListItem = {
 
 export type RunWriteResult = {
   id: string;
+  product_id: string | null;
   product_name: string;
+  product_sku: string | null;
   quantity: number;
   stage: string;
   vendor_name: string;

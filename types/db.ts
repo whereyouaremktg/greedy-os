@@ -254,6 +254,7 @@ export type Database = {
           expected_completion_date: string | null
           id: string
           notes: string | null
+          product_id: string | null
           product_name: string
           purchase_order_id: string | null
           quantity: number
@@ -271,6 +272,7 @@ export type Database = {
           expected_completion_date?: string | null
           id?: string
           notes?: string | null
+          product_id?: string | null
           product_name: string
           purchase_order_id?: string | null
           quantity?: number
@@ -288,6 +290,7 @@ export type Database = {
           expected_completion_date?: string | null
           id?: string
           notes?: string | null
+          product_id?: string | null
           product_name?: string
           purchase_order_id?: string | null
           quantity?: number
@@ -297,6 +300,13 @@ export type Database = {
           vendor_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "manufacturing_runs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "manufacturing_runs_purchase_order_id_fkey"
             columns: ["purchase_order_id"]
@@ -394,6 +404,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      products: {
+        Row: {
+          active: boolean
+          category: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          image_url: string | null
+          name: string
+          notes: string | null
+          shopify_handle: string | null
+          shopify_product_id: string | null
+          sku: string | null
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+          notes?: string | null
+          shopify_handle?: string | null
+          shopify_product_id?: string | null
+          sku?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          notes?: string | null
+          shopify_handle?: string | null
+          shopify_product_id?: string | null
+          sku?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       purchase_orders: {
         Row: {

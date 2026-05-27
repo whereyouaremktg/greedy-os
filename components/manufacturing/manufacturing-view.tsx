@@ -11,6 +11,7 @@ import { ManufacturingTable } from "@/components/manufacturing/manufacturing-tab
 import { RunForm } from "@/components/manufacturing/run-form";
 import type {
   ManufacturingRunRow,
+  ProductOption,
   PurchaseOrderOption,
   VendorOption,
 } from "@/components/manufacturing/types";
@@ -37,11 +38,13 @@ export function ManufacturingView({
   initialRuns,
   vendors,
   purchaseOrders,
+  products,
   initialCreateOpen = false,
 }: {
   initialRuns: ManufacturingRunRow[];
   vendors: VendorOption[];
   purchaseOrders: PurchaseOrderOption[];
+  products: ProductOption[];
   initialCreateOpen?: boolean;
 }) {
   const searchParams = useSearchParams();
@@ -176,6 +179,7 @@ export function ManufacturingView({
             <RunForm
               vendors={vendors}
               purchaseOrders={purchaseOrders}
+              products={products}
               onSuccess={() => handleMutationSuccess(closeCreateSheet)}
               onCancel={closeCreateSheet}
             />
@@ -200,6 +204,7 @@ export function ManufacturingView({
                 run={editing}
                 vendors={vendors}
                 purchaseOrders={purchaseOrders}
+                products={products}
                 onSuccess={() =>
                   handleMutationSuccess(() => setEditing(null))
                 }

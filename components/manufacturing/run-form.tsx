@@ -18,9 +18,11 @@ import {
 } from "@/lib/manufacturing/stages";
 import type {
   ManufacturingRunRow,
+  ProductOption,
   PurchaseOrderOption,
   VendorOption,
 } from "@/components/manufacturing/types";
+import { ProductCombobox } from "@/components/products/product-combobox";
 import {
   Form,
   FormControl,
@@ -47,6 +49,7 @@ function toFormValues(run?: ManufacturingRunRow): RunFormValues {
   return {
     vendor_id: run?.vendor_id ?? "",
     purchase_order_id: run?.purchase_order_id ?? "",
+    product_id: run?.product_id ?? "",
     product_name: run?.product_name ?? "",
     variant: run?.variant ?? "",
     quantity: run?.quantity ?? 0,
@@ -67,6 +70,7 @@ export function RunForm({
   run,
   vendors,
   purchaseOrders,
+  products,
   onSuccess,
   onCancel,
   onDeleted,
@@ -74,6 +78,7 @@ export function RunForm({
   run?: ManufacturingRunRow;
   vendors: VendorOption[];
   purchaseOrders: PurchaseOrderOption[];
+  products: ProductOption[];
   onSuccess?: () => void;
   onCancel?: () => void;
   onDeleted?: () => void;
@@ -181,10 +186,38 @@ export function RunForm({
 
           <FormField
             control={form.control}
+            name="product_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Catalog product</FormLabel>
+                <FormControl>
+                  <ProductCombobox
+                    products={products}
+                    value={field.value?.trim() ? field.value : null}
+                    onChange={(productId, productName) => {
+                      field.onChange(productId ?? "");
+                      if (productName) {
+                        form.setValue("product_name", productName, {
+                          shouldValidate: true,
+                        });
+                      }
+                    }}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Link to the catalog, or choose None to enter a free-text name.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="product_name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Product</FormLabel>
+                <FormLabel>Product name</FormLabel>
                 <FormControl>
                   <Input placeholder="Silk Press Serum" {...field} />
                 </FormControl>

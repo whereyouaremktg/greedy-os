@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import type {
   GlowToolResult,
+  ProductListItem,
   RunListItem,
   RunWriteResult,
   VendorListItem,
@@ -14,6 +15,11 @@ import {
   updateRunDatesCore,
   updateRunStageCore,
 } from "@/lib/manufacturing/core";
+import {
+  createProductCore,
+  createProductInput,
+  deactivateProductCore,
+} from "@/lib/products/core";
 import { createVendorCore, createVendorInput } from "@/lib/vendors/core";
 import type { ManufacturingStage } from "@/lib/manufacturing/stages";
 import type { Database } from "@/types/db";
@@ -64,6 +70,10 @@ function scoreVendorName(name: string, query: string): number {
   return hits > 0 ? 40 + hits * 10 : 0;
 }
 
+function scoreProductName(name: string, query: string): number {
+  return scoreVendorName(name, query);
+}
+
 async function fetchRunSummary(
   supabase: Client,
   id: string,
@@ -71,9 +81,10 @@ async function fetchRunSummary(
   const { data, error } = await supabase
     .from("manufacturing_runs")
     .select(
-      `id, product_name, quantity, stage, expected_arrival_date,
+      `id, product_id, product_name, quantity, stage, expected_arrival_date,
        expected_completion_date, actual_arrival_date, actual_completion_date,
-       vendors!inner ( name )`,
+       vendors!inner ( name ),
+       products ( sku )`,
     )
     .eq("id", id)
     .maybeSingle();
@@ -85,11 +96,15 @@ async function fetchRunSummary(
     return toolError("NOT_FOUND", "Manufacturing run not found");
   }
 
+  const product = data.products as { sku: string | null } | null;
+
   return {
     ok: true,
     data: {
       id: data.id,
+      product_id: data.product_id,
       product_name: data.product_name,
+      product_sku: product?.sku ?? null,
       quantity: data.quantity,
       stage: data.stage,
       vendor_name: (data.vendors as { name: string }).name,
@@ -157,6 +172,78 @@ export function makeGlowTools(ctx: GlowToolCtx) {
         }),
     }),
 
+    listProducts: tool({
+      description:
+        "List catalog products with id, name, SKU, and category. Use to disambiguate product names, validate SKUs, or resolve product_id before creating a manufacturing run.",
+      inputSchema: z.object({
+        nameContains: z
+          .string()
+          .optional()
+          .describe("Optional case-insensitive substring filter on product name."),
+        sku: z
+          .string()
+          .optional()
+          .describe("Optional case-insensitive SKU filter."),
+        includeInactive: z.boolean().default(false),
+      }),
+      execute: async ({ nameContains, sku, includeInactive }) =>
+        runTool(async () => {
+          let query = supabase
+            .from("products")
+            .select("id, name, sku, category, active")
+            .order("name", { ascending: true })
+            .limit(200);
+
+          if (!includeInactive) {
+            query = query.eq("active", true);
+          }
+
+          const { data, error } = await query;
+          if (error) {
+            return toolError(error.code ?? "DB_ERROR", error.message);
+          }
+
+          let products: ProductListItem[] = data ?? [];
+
+          if (sku?.trim()) {
+            const q = sku.trim().toLowerCase();
+            products = products.filter((p) =>
+              p.sku?.toLowerCase().includes(q),
+            );
+          }
+
+          if (nameContains?.trim()) {
+            const queryText = nameContains.trim();
+            const direct = products.filter((p) =>
+              p.name.toLowerCase().includes(queryText.toLowerCase()),
+            );
+
+            if (direct.length > 0) {
+              products = direct;
+            } else {
+              products = [...products]
+                .map((p) => ({
+                  p,
+                  score: scoreProductName(p.name, queryText),
+                }))
+                .filter(({ score }) => score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5)
+                .map(({ p }) => p);
+            }
+          }
+
+          return {
+            ok: true,
+            data: {
+              products,
+              count: products.length,
+              nearestMatches: Boolean(nameContains?.trim() && products.length > 0),
+            },
+          };
+        }),
+    }),
+
     listManufacturingRuns: tool({
       description:
         "List manufacturing runs with vendor + product. Use to disambiguate when the user says e.g. 'the Daily Cleanser run'.",
@@ -171,9 +258,10 @@ export function makeGlowTools(ctx: GlowToolCtx) {
           let query = supabase
             .from("manufacturing_runs")
             .select(
-              `id, product_name, variant, quantity, stage,
+              `id, product_id, product_name, variant, quantity, stage,
                expected_arrival_date, expected_completion_date,
-               vendors!inner ( name )`,
+               vendors!inner ( name ),
+               products ( sku )`,
             )
             .order("updated_at", { ascending: false })
             .limit(limit);
@@ -189,7 +277,9 @@ export function makeGlowTools(ctx: GlowToolCtx) {
 
           let runs: RunListItem[] = (data ?? []).map((row) => ({
             id: row.id,
+            product_id: row.product_id,
             product_name: row.product_name,
+            product_sku: (row.products as { sku: string | null } | null)?.sku ?? null,
             variant: row.variant,
             quantity: row.quantity,
             stage: row.stage,
@@ -227,11 +317,46 @@ export function makeGlowTools(ctx: GlowToolCtx) {
         }),
     }),
 
+    createProduct: tool({
+      description:
+        "Create a catalog product manually. Product creation is low-stakes — execute immediately after restating in plain English when the user explicitly wants a new catalog entry. Prefer the products list in DATA or listProducts first to avoid duplicates.",
+      inputSchema: createProductInput,
+      execute: async (input) =>
+        runTool(async () => {
+          const created = await createProductCore(
+            supabase,
+            actorUserId,
+            input,
+          );
+          if (!created.ok) return created;
+          return { ok: true, data: created.data };
+        }),
+    }),
+
+    deactivateProduct: tool({
+      description:
+        "Soft-delete a catalog product by setting active=false. Requires explicit user confirmation before calling.",
+      inputSchema: z.object({
+        id: z.string().uuid(),
+      }),
+      execute: async ({ id }) =>
+        runTool(async () => {
+          const result = await deactivateProductCore(
+            supabase,
+            actorUserId,
+            id,
+          );
+          if (!result.ok) return result;
+          return { ok: true, data: result.data };
+        }),
+    }),
+
     createManufacturingRun: tool({
       description:
-        "Create a new manufacturing run (production order). Use when the user describes a confirmed order. Resolve vendor by name first via listVendors; if no match, return a clarification request rather than creating.",
+        "Create a new manufacturing run (production order). Before creating, call listProducts or use the products list in DATA to resolve the product. If a match is found, pass BOTH product_id and product_name (use the canonical product name from the catalog). If no match, ask the user whether to createProduct first or proceed with just product_name. Resolve vendor by name first via listVendors.",
       inputSchema: z.object({
         vendor_id: z.string().uuid(),
+        product_id: z.string().uuid().optional(),
         product_name: z.string().min(1),
         variant: z.string().optional(),
         quantity: z.number().int().positive(),
@@ -243,6 +368,7 @@ export function makeGlowTools(ctx: GlowToolCtx) {
         runTool(async () => {
           const created = await createRunCore(supabase, actorUserId, {
             vendor_id: input.vendor_id,
+            product_id: input.product_id ?? null,
             product_name: input.product_name.trim(),
             variant: input.variant?.trim() || null,
             quantity: input.quantity,

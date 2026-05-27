@@ -6,6 +6,7 @@ import {
 } from "@/components/manufacturing/manufacturing-view";
 import type {
   ManufacturingRunRow,
+  ProductOption,
   PurchaseOrderOption,
   VendorOption,
 } from "@/components/manufacturing/types";
@@ -18,11 +19,11 @@ export default async function ManufacturingPage({
   const params = await searchParams;
   const supabase = await createClient();
 
-  const [runsResult, vendorsResult, posResult] = await Promise.all([
+  const [runsResult, vendorsResult, posResult, productsResult] = await Promise.all([
     supabase
       .from("manufacturing_runs")
       .select(
-        `id, vendor_id, purchase_order_id, product_name, variant, quantity, stage,
+        `id, vendor_id, purchase_order_id, product_id, product_name, variant, quantity, stage,
          expected_completion_date, expected_arrival_date, actual_completion_date,
          actual_arrival_date, notes, created_at, updated_at,
          vendors!inner ( name )`,
@@ -37,6 +38,11 @@ export default async function ManufacturingPage({
       .select("id, po_number, vendor_id")
       .order("created_at", { ascending: false })
       .limit(50),
+    supabase
+      .from("products")
+      .select("id, name, sku")
+      .eq("active", true)
+      .order("name", { ascending: true }),
   ]);
 
   if (runsResult.error) {
@@ -54,6 +60,7 @@ export default async function ManufacturingPage({
     id: row.id,
     vendor_id: row.vendor_id,
     purchase_order_id: row.purchase_order_id,
+    product_id: row.product_id,
     product_name: row.product_name,
     variant: row.variant,
     quantity: row.quantity,
@@ -71,6 +78,7 @@ export default async function ManufacturingPage({
 
   const vendors: VendorOption[] = vendorsResult.data ?? [];
   const purchaseOrders: PurchaseOrderOption[] = posResult.data ?? [];
+  const products: ProductOption[] = productsResult.data ?? [];
 
   return (
     <Suspense fallback={null}>
@@ -78,6 +86,7 @@ export default async function ManufacturingPage({
         initialRuns={runs}
         vendors={vendors}
         purchaseOrders={purchaseOrders}
+        products={products}
         initialCreateOpen={params.new === "1"}
       />
     </Suspense>

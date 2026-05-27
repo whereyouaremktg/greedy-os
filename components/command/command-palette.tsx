@@ -16,6 +16,7 @@ import {
   Factory,
   Megaphone,
   Building2,
+  Package,
   LogOut,
   Moon,
   Sun,
@@ -35,10 +36,11 @@ import {
 
 const PAGES = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/vendors", label: "Vendors", icon: Building2 },
   { href: "/purchase-orders", label: "Purchase Orders", icon: FileText },
   { href: "/manufacturing", label: "Manufacturing", icon: Factory },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+  { href: "/vendors", label: "Vendors", icon: Building2 },
+  { href: "/products", label: "Products", icon: Package },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -91,6 +93,13 @@ function CommandPaletteDialog() {
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Actions">
+          <CommandItem
+            value="Create product"
+            onSelect={() => run(() => router.push("/products?new=1"))}
+          >
+            <Plus className="size-4 text-muted-foreground" />
+            Create product
+          </CommandItem>
           <CommandItem
             value="Create vendor"
             onSelect={() => run(() => router.push("/vendors?new=1"))}
