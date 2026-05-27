@@ -40,5 +40,4 @@ export const CATEGORY_ORDER: TimelineCategory[] = [
   "payment",
   "campaign",
   "campaign_task",
-  "deal",
 ];

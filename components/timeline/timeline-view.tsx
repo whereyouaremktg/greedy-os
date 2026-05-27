@@ -47,8 +47,8 @@ export function TimelineView({ events }: { events: TimelineEvent[] }) {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Timeline</h1>
             <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-              Campaign windows, manufacturing arrivals, PO deliveries, payment
-              due dates, and deal close dates in one place.
+              Campaign windows, manufacturing arrivals, PO deliveries, and
+              payment due dates in one place.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 shrink-0">

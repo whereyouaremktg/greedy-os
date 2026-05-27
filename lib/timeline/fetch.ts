@@ -3,7 +3,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildCampaignEvents,
   buildCampaignTaskEvents,
-  buildDealEvents,
   buildManufacturingEvents,
   buildPaymentEvents,
   buildPurchaseOrderEvents,
@@ -14,8 +13,6 @@ import type { Database } from "@/types/db";
 
 type Client = SupabaseClient<Database>;
 
-const OPEN_DEAL_STAGES_EXCLUDED = ["closed_won", "closed_lost"] as const;
-
 export async function fetchTimelineEvents(
   supabase: Client,
 ): Promise<{ events: TimelineEvent[]; error?: string }> {
@@ -25,7 +22,6 @@ export async function fetchTimelineEvents(
     paymentsResult,
     campaignsResult,
     tasksResult,
-    dealsResult,
   ] = await Promise.all([
     supabase
       .from("manufacturing_runs")
@@ -62,11 +58,6 @@ export async function fetchTimelineEvents(
       )
       .not("due_date", "is", null)
       .order("due_date", { ascending: true }),
-    supabase
-      .from("hubspot_deals")
-      .select("id, deal_name, stage, close_date, amount, state")
-      .not("close_date", "is", null)
-      .order("close_date", { ascending: true }),
   ]);
 
   const firstError =
@@ -74,8 +65,7 @@ export async function fetchTimelineEvents(
     posResult.error ??
     paymentsResult.error ??
     campaignsResult.error ??
-    tasksResult.error ??
-    dealsResult.error;
+    tasksResult.error;
 
   if (firstError) {
     return { events: [], error: firstError.message };
@@ -130,20 +120,12 @@ export async function fetchTimelineEvents(
       (row.campaigns as { name: string } | null)?.name ?? "Campaign",
   }));
 
-  const deals = (dealsResult.data ?? []).filter(
-    (d) =>
-      !OPEN_DEAL_STAGES_EXCLUDED.includes(
-        d.stage as (typeof OPEN_DEAL_STAGES_EXCLUDED)[number],
-      ),
-  );
-
   const events = mergeTimelineEvents(
     buildManufacturingEvents(runs),
     buildPurchaseOrderEvents(pos),
     buildPaymentEvents(payments),
     buildCampaignEvents(campaigns),
     buildCampaignTaskEvents(tasks),
-    buildDealEvents(deals),
   );
 
   return { events };

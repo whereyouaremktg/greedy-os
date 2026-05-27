@@ -123,7 +123,21 @@ function firstAssociatedCompanyId(
   return deal.associations?.companies?.results?.[0]?.id;
 }
 
+async function isHubspotDealsSyncEnabled(): Promise<boolean> {
+  if (process.env.HUBSPOT_SYNC_DEALS === "false") return false;
+  const stored = (await getCredential("hubspot", "HUBSPOT_SYNC_DEALS"))?.trim();
+  return stored !== "false";
+}
+
 export async function runHubspotPull() {
+  const supabase = createServiceClient();
+
+  if (!(await isHubspotDealsSyncEnabled())) {
+    const { error } = await supabase.from("hubspot_deals").delete().neq("id", "");
+    if (error) throw new Error(`hubspot_deals clear: ${error.message}`);
+    return { ok: true, rows: 0, deals_sync: "disabled" as const };
+  }
+
   const token = await requireCredential(
     "hubspot",
     "HUBSPOT_PRIVATE_APP_TOKEN",
@@ -132,7 +146,6 @@ export async function runHubspotPull() {
   );
 
   const client = new Client({ accessToken: token });
-  const supabase = createServiceClient();
   const now = new Date().toISOString();
 
   const geoProperty = await discoverGeoProperty(client);
