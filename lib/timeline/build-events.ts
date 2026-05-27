@@ -25,6 +25,17 @@ type PoRow = {
   vendor_name: string;
 };
 
+type PoLineRow = {
+  id: string;
+  purchase_order_id: string;
+  product_name: string;
+  color: string | null;
+  quantity: number;
+  cancel_date: string | null;
+  po_number: string | null;
+  vendor_name: string;
+};
+
 type PaymentRow = {
   id: string;
   purchase_order_id: string;
@@ -179,12 +190,44 @@ export function buildPurchaseOrderEvents(pos: PoRow[]): TimelineEvent[] {
         date: po.expected_date,
         title,
         subtitle,
-        label: "Expected delivery",
+        label: "Latest cancel date",
         status: po.status,
         urgency: urgencyForDate(po.expected_date),
         href: "/purchase-orders",
       });
     }
+  }
+
+  return events;
+}
+
+export function buildPoLineCancelEvents(lines: PoLineRow[]): TimelineEvent[] {
+  const events: TimelineEvent[] = [];
+
+  for (const line of lines) {
+    if (!line.cancel_date) continue;
+
+    const poLabel = line.po_number ? `PO ${line.po_number}` : "Purchase order";
+    const subtitle = [
+      line.vendor_name,
+      poLabel,
+      line.color,
+      `${line.quantity.toLocaleString()} units`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    events.push({
+      id: `po-line-${line.id}-cancel`,
+      category: "purchase_order",
+      kind: "milestone",
+      date: line.cancel_date,
+      title: line.product_name,
+      subtitle,
+      label: "Cancel date",
+      urgency: urgencyForDate(line.cancel_date),
+      href: "/purchase-orders",
+    });
   }
 
   return events;

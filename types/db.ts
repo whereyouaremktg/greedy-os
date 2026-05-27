@@ -325,33 +325,45 @@ export type Database = {
       }
       po_line_items: {
         Row: {
+          cancel_date: string | null
+          color: string | null
           created_at: string
           id: string
           line_total: number | null
           product_name: string
           purchase_order_id: string
           quantity: number
+          retail_price: number | null
           sku: string | null
+          style_number: string | null
           unit_cost: number
         }
         Insert: {
+          cancel_date?: string | null
+          color?: string | null
           created_at?: string
           id?: string
           line_total?: number | null
           product_name: string
           purchase_order_id: string
           quantity?: number
+          retail_price?: number | null
           sku?: string | null
+          style_number?: string | null
           unit_cost?: number
         }
         Update: {
+          cancel_date?: string | null
+          color?: string | null
           created_at?: string
           id?: string
           line_total?: number | null
           product_name?: string
           purchase_order_id?: string
           quantity?: number
+          retail_price?: number | null
           sku?: string | null
+          style_number?: string | null
           unit_cost?: number
         }
         Relationships: [

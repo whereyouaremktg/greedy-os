@@ -15,10 +15,16 @@ type ToolPart = Extract<
   { type: `tool-${string}` } | { type: "dynamic-tool" }
 >;
 
-function runLinkId(output: unknown): string | null {
+function runLinkId(toolName: string, output: unknown): { href: string; id: string } | null {
   if (!isGlowToolResult(output) || !output.ok) return null;
   const id = (output.data as { id?: string }).id;
-  return id ?? null;
+  if (!id) return null;
+
+  if (toolName === "createPurchaseOrder" || toolName === "listPurchaseOrders") {
+    return { href: "/purchase-orders", id };
+  }
+
+  return { href: "/manufacturing", id };
 }
 
 export function ToolChip({ part }: { part: ToolPart }) {
@@ -60,20 +66,20 @@ export function ToolChip({ part }: { part: ToolPart }) {
     const label = isGlowToolResult(output)
       ? formatToolSuccessLabel(toolName, output)
       : formatToolRunningLabel(toolName);
-    const id = runLinkId(output);
+    const link = runLinkId(toolName, output);
 
     return (
       <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground">
         <span className="text-brand">✓</span>
-        {id ? (
+        {link ? (
           <Link
-            href={`/manufacturing#${id}`}
+            href={link.href}
             className="hover:text-foreground"
             onClick={(e) => e.stopPropagation()}
           >
             <span>{label}</span>
             <span className="num ml-1 font-mono text-[10px] opacity-70">
-              #{id.slice(0, 8)}
+              #{link.id.slice(0, 8)}
             </span>
           </Link>
         ) : (

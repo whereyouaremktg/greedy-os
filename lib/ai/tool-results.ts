@@ -41,6 +41,18 @@ export type RunWriteResult = {
   actual_completion_date?: string | null;
 };
 
+export type PoWriteResult = {
+  id: string;
+  po_number: string | null;
+  vendor_name: string;
+  status: string;
+  order_date: string | null;
+  expected_date: string | null;
+  total: number;
+  line_item_count: number;
+  total_units: number;
+};
+
 export function isGlowToolResult(value: unknown): value is GlowToolResult<unknown> {
   if (!value || typeof value !== "object") return false;
   const v = value as { ok?: boolean };

@@ -20,6 +20,10 @@ import {
   createProductInput,
   deactivateProductCore,
 } from "@/lib/products/core";
+import {
+  createPurchaseOrderCore,
+} from "@/lib/purchase-orders/core";
+import { createPurchaseOrderInputSchema } from "@/lib/purchase-orders/schema";
 import { createVendorCore, createVendorInput } from "@/lib/vendors/core";
 import type { ManufacturingStage } from "@/lib/manufacturing/stages";
 import type { Database } from "@/types/db";
@@ -452,6 +456,77 @@ export function makeGlowTools(ctx: GlowToolCtx) {
           }
 
           return fetchRunSummary(supabase, input.run_id);
+        }),
+    }),
+
+    listPurchaseOrders: tool({
+      description:
+        "List purchase orders with buyer, PO number, dates, totals, and line counts. Use when the user asks about wholesale POs, cancel dates, or overdue orders.",
+      inputSchema: z.object({
+        buyerContains: z
+          .string()
+          .optional()
+          .describe("Optional buyer/vendor name filter."),
+        limit: z.number().int().min(1).max(50).default(20),
+      }),
+      execute: async ({ buyerContains, limit }) =>
+        runTool(async () => {
+          const { data, error } = await supabase
+            .from("purchase_orders")
+            .select(
+              `id, po_number, status, order_date, expected_date, total,
+               vendors!inner ( name ),
+               po_line_items ( quantity )`,
+            )
+            .order("order_date", { ascending: false, nullsFirst: false })
+            .limit(limit);
+
+          if (error) {
+            return toolError(error.code ?? "DB_ERROR", error.message);
+          }
+
+          let orders = (data ?? []).map((row) => {
+            const lines = row.po_line_items ?? [];
+            return {
+              id: row.id,
+              po_number: row.po_number,
+              status: row.status,
+              order_date: row.order_date,
+              expected_date: row.expected_date,
+              total: row.total,
+              buyer_name: (row.vendors as { name: string }).name,
+              line_item_count: lines.length,
+              total_units: lines.reduce(
+                (sum, line) => sum + Number(line.quantity),
+                0,
+              ),
+            };
+          });
+
+          if (buyerContains?.trim()) {
+            const q = buyerContains.trim().toLowerCase();
+            orders = orders.filter((o) =>
+              o.buyer_name.toLowerCase().includes(q),
+            );
+          }
+
+          return { ok: true, data: { orders, count: orders.length } };
+        }),
+    }),
+
+    createPurchaseOrder: tool({
+      description:
+        "Create a purchase order with line items. Use when the user confirms a parsed wholesale PO or provides PO details explicitly. Resolve buyer via vendor_name (creates buyer if missing, e.g. REVOLVE). Include per-line cancel_date when available.",
+      inputSchema: createPurchaseOrderInputSchema,
+      execute: async (input) =>
+        runTool(async () => {
+          const created = await createPurchaseOrderCore(
+            supabase,
+            actorUserId,
+            input,
+          );
+          if (!created.ok) return created;
+          return { ok: true, data: created.data };
         }),
     }),
   };

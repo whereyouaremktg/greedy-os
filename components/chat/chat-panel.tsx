@@ -1,14 +1,17 @@
 "use client";
 
+import * as React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
-import { Send } from "lucide-react";
+import { FileUp, Send } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { enrichNumbers } from "@/components/chat/number-inline";
 import { StreamingDots } from "@/components/chat/streaming-dots";
 import { renderToolPart } from "@/components/chat/tool-chip";
+import type { ParsedPurchaseOrder } from "@/lib/purchase-orders/schema";
 
 const ANALYST_PROMPTS = [
   "How is our cash?",
@@ -22,8 +25,22 @@ const ACTION_PROMPTS = [
   "Move the Brightening Serum run to in_transit",
 ] as const;
 
+function buildParsedPoMessage(parsed: ParsedPurchaseOrder): string {
+  const poLabel = parsed.vendor_po_number ?? parsed.order_number ?? "unknown";
+  return [
+    `I uploaded a wholesale PO (${poLabel}) from ${parsed.buyer_name}.`,
+    `Order date: ${parsed.order_date}. Total: $${parsed.total_price.toLocaleString()} (${parsed.total_units.toLocaleString()} units, ${parsed.line_items.length} styles).`,
+    "Please save this purchase order.",
+    "",
+    "Parsed PO JSON:",
+    JSON.stringify(parsed, null, 2),
+  ].join("\n");
+}
+
 export function ChatPanel() {
   const [input, setInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { messages, sendMessage, status } = useChat();
   const isStreaming = status === "streaming" || status === "submitted";
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -40,6 +57,45 @@ export function ChatPanel() {
     },
     [isStreaming, sendMessage],
   );
+
+  async function handlePoUpload(file: File) {
+    if (uploading || isStreaming) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/purchase-orders/parse", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = (await res.json()) as {
+        ok: boolean;
+        data?: ParsedPurchaseOrder;
+        error?: string;
+      };
+
+      if (!res.ok || !json.ok || !json.data) {
+        toast.error(json.error ?? "Failed to parse purchase order");
+        return;
+      }
+
+      send(buildParsedPoMessage(json.data));
+      toast.success("PO parsed — asking analyst to save");
+    } catch {
+      toast.error("Failed to upload purchase order");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) void handlePoUpload(file);
+    e.target.value = "";
+  }
 
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -70,7 +126,8 @@ export function ChatPanel() {
             <div className="space-y-3 py-2">
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Ask about cash, AR, revenue, pipeline, or ops data pulled from
-                the cache. You can also create or update manufacturing runs.
+                the cache. Upload a PO image to extract and save wholesale
+                orders, or create manufacturing runs.
               </p>
               <div className="space-y-2">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -161,6 +218,23 @@ export function ChatPanel() {
         }}
         className="flex gap-2 border-t p-3"
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={onFileChange}
+        />
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="outline"
+          disabled={isStreaming || uploading}
+          onClick={() => fileInputRef.current?.click()}
+          title="Upload PO"
+        >
+          <FileUp className={cn("size-3.5", uploading && "animate-pulse")} />
+        </Button>
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -171,7 +245,7 @@ export function ChatPanel() {
         <Button
           type="submit"
           size="icon-sm"
-          disabled={isStreaming || !input.trim()}
+          disabled={isStreaming || uploading || !input.trim()}
         >
           <Send className="size-3.5" />
         </Button>

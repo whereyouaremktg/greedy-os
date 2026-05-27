@@ -1,4 +1,4 @@
-import type { GlowToolResult, RunWriteResult } from "@/lib/ai/tool-results";
+import type { GlowToolResult, PoWriteResult, RunWriteResult } from "@/lib/ai/tool-results";
 import { formatStageLabel } from "@/lib/manufacturing/stages";
 
 export function shortId(id: string): string {
@@ -24,6 +24,13 @@ export function formatToolSuccessLabel(
       return `Updated run #${shortId(data.id)} → ${formatStageLabel(data.stage as never)}`;
     case "updateRunArrival":
       return `Updated dates for run #${shortId(data.id)} — ${data.product_name}`;
+    case "createPurchaseOrder": {
+      const po = output.data as PoWriteResult;
+      const label = po.po_number ? `PO ${po.po_number}` : "Purchase order";
+      return `Created ${label} — ${po.line_item_count} styles, ${po.total_units.toLocaleString()} units`;
+    }
+    case "listPurchaseOrders":
+      return "Listed purchase orders";
     case "listVendors":
       return "Listed vendors";
     case "listManufacturingRuns":
@@ -43,6 +50,10 @@ export function formatToolRunningLabel(toolName: string): string {
       return "Updating run stage";
     case "updateRunArrival":
       return "Updating run dates";
+    case "createPurchaseOrder":
+      return "Creating purchase order";
+    case "listPurchaseOrders":
+      return "Looking up purchase orders";
     case "listVendors":
       return "Looking up vendors";
     case "listManufacturingRuns":
@@ -56,6 +67,7 @@ export function isWriteTool(toolName: string): boolean {
   return (
     toolName === "createVendor" ||
     toolName === "createManufacturingRun" ||
+    toolName === "createPurchaseOrder" ||
     toolName === "updateRunStage" ||
     toolName === "updateRunArrival"
   );
