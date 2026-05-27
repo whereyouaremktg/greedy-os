@@ -19,6 +19,7 @@ import {
   type TimelineEvent,
 } from "@/lib/timeline/types";
 import { filterEvents } from "@/lib/timeline/utils";
+import { cn } from "@/lib/utils";
 
 type CategoryFilter = TimelineCategory | "all";
 
@@ -44,6 +45,8 @@ export function TimelineView({
   );
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState("horizon");
+
+  const isHorizon = activeTab === "horizon";
 
   React.useEffect(() => {
     setEvents(initialEvents);
@@ -89,102 +92,158 @@ export function TimelineView({
     }
   }
 
+  const filters = (
+    <>
+      <Select
+        className="w-[160px] text-[13px]"
+        value={category}
+        onChange={(e) => setCategory(e.target.value as CategoryFilter)}
+        aria-label="Filter timeline source"
+      >
+        {FILTER_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </Select>
+      <label className="flex items-center gap-2 text-[12px] text-muted-foreground cursor-pointer">
+        <Switch
+          checked={hidePaid}
+          onCheckedChange={setHidePaid}
+          aria-label="Hide paid payments"
+        />
+        Hide paid
+      </label>
+    </>
+  );
+
+  const stats = (
+    <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+      <span>
+        <span className="font-medium text-foreground tabular-nums">
+          {filtered.length}
+        </span>{" "}
+        events
+      </span>
+      <span>
+        {milestoneCount} milestones · {rangeCount} ranges
+      </span>
+      {overdueEvents.length > 0 ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-auto px-1.5 py-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={showOverdue}
+        >
+          {overdueEvents.length} overdue — view
+        </Button>
+      ) : null}
+    </div>
+  );
+
   return (
     <>
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
-        className="space-y-4"
+        className={cn(
+          isHorizon
+            ? "-m-5 flex min-h-[calc(100dvh-3.5rem)] flex-col"
+            : "space-y-4",
+        )}
       >
-        <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 pb-3 backdrop-blur space-y-3">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Timeline</h1>
-              <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-                Campaign windows, manufacturing arrivals, PO deliveries, and
-                payment due dates in one place. Click any event for details.
-              </p>
+        <div
+          className={cn(
+            "z-10 bg-background/95 backdrop-blur",
+            isHorizon
+              ? "shrink-0 space-y-0 border-b"
+              : "sticky top-0 -mx-1 space-y-3 px-1 pb-3",
+          )}
+        >
+          {isHorizon ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
+              <h1 className="text-lg font-semibold tracking-tight shrink-0">
+                Timeline
+              </h1>
+              <TabsList className="h-8">
+                <TabsTrigger value="horizon" className="text-xs">
+                  <GanttChart className="size-3.5" />
+                  Horizon
+                </TabsTrigger>
+                <TabsTrigger value="month" className="text-xs">
+                  <CalendarDays className="size-3.5" />
+                  Month
+                </TabsTrigger>
+                <TabsTrigger value="agenda" className="text-xs">
+                  <List className="size-3.5" />
+                  Agenda
+                </TabsTrigger>
+              </TabsList>
+              <div className="flex flex-wrap items-center gap-3 ml-auto">
+                {filters}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <Select
-                className="w-[180px] text-[13px]"
-                value={category}
-                onChange={(e) =>
-                  setCategory(e.target.value as CategoryFilter)
-                }
-                aria-label="Filter timeline source"
-              >
-                {FILTER_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </Select>
-              <label className="flex items-center gap-2 text-[12px] text-muted-foreground cursor-pointer">
-                <Switch
-                  checked={hidePaid}
-                  onCheckedChange={setHidePaid}
-                  aria-label="Hide paid payments"
-                />
-                Hide paid
-              </label>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-            <span>
-              <span className="font-medium text-foreground tabular-nums">
-                {filtered.length}
-              </span>{" "}
-              events
-            </span>
-            <span>
-              {milestoneCount} milestones · {rangeCount} ranges
-            </span>
-            {overdueEvents.length > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-auto px-1.5 py-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={showOverdue}
-              >
-                {overdueEvents.length} overdue — view
-              </Button>
-            ) : null}
-          </div>
-
-          <TabsList>
-            <TabsTrigger value="horizon">
-              <GanttChart className="size-3.5" />
-              Horizon
-            </TabsTrigger>
-            <TabsTrigger value="month">
-              <CalendarDays className="size-3.5" />
-              Month
-            </TabsTrigger>
-            <TabsTrigger value="agenda">
-              <List className="size-3.5" />
-              Agenda
-            </TabsTrigger>
-          </TabsList>
+          ) : (
+            <>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    Timeline
+                  </h1>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                    Campaign windows, manufacturing arrivals, PO deliveries,
+                    and payment due dates in one place.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 shrink-0">
+                  {filters}
+                </div>
+              </div>
+              {stats}
+              <TabsList>
+                <TabsTrigger value="horizon">
+                  <GanttChart className="size-3.5" />
+                  Horizon
+                </TabsTrigger>
+                <TabsTrigger value="month">
+                  <CalendarDays className="size-3.5" />
+                  Month
+                </TabsTrigger>
+                <TabsTrigger value="agenda">
+                  <List className="size-3.5" />
+                  Agenda
+                </TabsTrigger>
+              </TabsList>
+            </>
+          )}
         </div>
 
-        <TabsContent value="horizon">
+        <TabsContent
+          value="horizon"
+          className={cn(
+            "mt-0 outline-none",
+            isHorizon && "flex flex-1 min-h-0 flex-col",
+          )}
+        >
           <TimelineHorizon
             events={filtered}
             selectedEventId={selectedEvent?.id}
             onSelectEvent={handleSelectEvent}
+            className={isHorizon ? "flex-1 min-h-0" : undefined}
           />
         </TabsContent>
-        <TabsContent value="month">
+        <TabsContent value="month" className={cn(isHorizon ? "mt-0 p-5" : "")}>
           <TimelineMonth
             events={filtered}
             selectedEventId={selectedEvent?.id}
             onSelectEvent={handleSelectEvent}
           />
         </TabsContent>
-        <TabsContent value="agenda">
+        <TabsContent
+          value="agenda"
+          className={cn(isHorizon ? "mt-0 p-5" : "")}
+        >
           <TimelineAgenda
             events={filtered}
             selectedEventId={selectedEvent?.id}
