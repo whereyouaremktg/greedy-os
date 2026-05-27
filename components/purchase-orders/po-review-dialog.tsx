@@ -6,22 +6,13 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  ParsedLineItemsList,
+  ReviewDialogShell,
+  ReviewSummaryGrid,
+  ReviewSummaryItem,
+} from "@/components/documents/review-dialog-shell";
 import { formatUsd } from "@/lib/format";
 import { createPurchaseOrderFromParsed } from "@/lib/actions/purchase-orders";
 import type { ParsedPurchaseOrder } from "@/lib/purchase-orders/schema";
@@ -57,104 +48,79 @@ export function PoReviewDialog({ parsed, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Review parsed purchase order</DialogTitle>
-          <DialogDescription>
-            Confirm extracted fields before saving. Cancel dates will appear on
-            the timeline.
-          </DialogDescription>
-        </DialogHeader>
-
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
-          <div>
-            <dt className="text-muted-foreground">Buyer</dt>
-            <dd className="font-medium">{parsed.buyer_name}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">PO #</dt>
-            <dd className="font-medium">
-              {parsed.vendor_po_number ?? parsed.order_number ?? "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Order date</dt>
-            <dd className="font-medium">{parsed.order_date}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Total units</dt>
-            <dd className="font-medium num">
-              {parsed.total_units.toLocaleString()}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Total</dt>
-            <dd className="font-medium num">
-              {formatUsd(parsed.total_price, 2)}
-            </dd>
-          </div>
+      <ReviewDialogShell
+        title="Review parsed purchase order"
+        description="Confirm extracted fields before saving. Cancel dates will appear on the timeline."
+        footer={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={pending}>
+              {pending ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save purchase order"
+              )}
+            </Button>
+          </>
+        }
+      >
+        <ReviewSummaryGrid>
+          <ReviewSummaryItem label="Buyer" value={parsed.buyer_name} />
+          <ReviewSummaryItem
+            label="PO #"
+            value={parsed.vendor_po_number ?? parsed.order_number ?? "—"}
+          />
+          <ReviewSummaryItem label="Order date" value={parsed.order_date} />
+          <ReviewSummaryItem
+            label="Total units"
+            value={
+              <span className="num">
+                {parsed.total_units.toLocaleString()}
+              </span>
+            }
+          />
+          <ReviewSummaryItem
+            label="Total"
+            value={
+              <span className="num">{formatUsd(parsed.total_price, 2)}</span>
+            }
+          />
           {parsed.season ? (
-            <div>
-              <dt className="text-muted-foreground">Season</dt>
-              <dd className="font-medium">{parsed.season}</dd>
-            </div>
+            <ReviewSummaryItem label="Season" value={parsed.season} />
           ) : null}
-        </dl>
+        </ReviewSummaryGrid>
 
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Unit</TableHead>
-                <TableHead className="text-right">Cancel</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {parsed.line_items.map((item, i) => (
-                <TableRow key={`${item.style_number ?? item.product_name}-${i}`}>
-                  <TableCell>
-                    <div className="font-medium">{item.product_name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {[item.revolve_code, item.color].filter(Boolean).join(" · ")}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right num">
-                    {item.quantity.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-right num">
-                    {formatUsd(item.unit_price, 2)}
-                  </TableCell>
-                  <TableCell className="text-right num text-destructive">
-                    {item.cancel_date}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">Line items</h3>
+          <ParsedLineItemsList
+            items={parsed.line_items.map((item, i) => ({
+              key: `${item.style_number ?? item.product_name}-${i}`,
+              title: item.product_name,
+              subtitle: [item.revolve_code, item.color]
+                .filter(Boolean)
+                .join(" · "),
+              quantity: item.quantity,
+              trailing: (
+                <div className="flex flex-wrap justify-end gap-x-3 gap-y-0.5 text-xs num">
+                  <span>{formatUsd(item.unit_price, 2)}/unit</span>
+                  <span className="text-destructive">
+                    Cancel {item.cancel_date}
+                  </span>
+                </div>
+              ),
+            }))}
+          />
         </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={pending}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={pending}>
-            {pending ? (
-              <>
-                <Loader2 className="animate-spin" />
-                Saving…
-              </>
-            ) : (
-              "Save purchase order"
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+      </ReviewDialogShell>
     </Dialog>
   );
 }

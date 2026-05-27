@@ -82,7 +82,7 @@ export function LandedMarginPanel({
     quantity > 0 && productCostUsd > 0 ? productCostUsd / quantity : null;
 
   return (
-    <section className="space-y-4 rounded-lg border bg-muted/30 p-4">
+    <section className="min-w-0 max-w-full space-y-4 rounded-lg border bg-muted/30 p-4">
       <div>
         <h3 className="text-sm font-semibold">Landed cost &amp; margin</h3>
         <p className="text-xs text-muted-foreground">
@@ -172,7 +172,7 @@ export function LandedMarginPanel({
       </div>
 
       {result ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-3 md:grid-cols-2">
           {result.scenarios.map((scenario) => (
             <ScenarioCard key={scenario.mode} scenario={scenario} />
           ))}
@@ -196,7 +196,7 @@ function ScenarioCard({
   const title = scenario.mode === "air" ? "Air" : "Sea";
 
   return (
-    <div className="rounded-md border bg-background p-3 text-sm">
+    <div className="min-w-0 rounded-md border bg-background p-3 text-sm">
       <div className="mb-2 flex items-center gap-2 font-medium">
         <Icon className="size-4 text-muted-foreground" />
         {title}

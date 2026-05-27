@@ -18,13 +18,21 @@ export function isAncillaryLine(item: ParsedMoLineItem): boolean {
   return ANCILLARY_PATTERN.test(item.description);
 }
 
+function lineValueUsd(item: ParsedMoLineItem): number {
+  if (item.line_total_usd != null && item.line_total_usd > 0) {
+    return item.line_total_usd;
+  }
+  return (item.unit_price_usd ?? 0) * item.quantity;
+}
+
+/** Main finished-good line — highest dollar value, not highest qty (cartons skew qty). */
 export function pickPrimaryLineItem(
   parsed: ParsedManufacturingOrder,
 ): ParsedMoLineItem {
   const finished = parsed.line_items.filter((item) => !isAncillaryLine(item));
   const pool = finished.length > 0 ? finished : parsed.line_items;
   return pool.reduce((best, item) =>
-    item.quantity > best.quantity ? item : best,
+    lineValueUsd(item) > lineValueUsd(best) ? item : best,
   );
 }
 
@@ -96,9 +104,12 @@ export function buildManufacturingOrderNotes(
 }
 
 export function productNameFromLine(item: ParsedMoLineItem): string {
-  const desc = item.description.trim();
+  let desc = item.description.trim();
+  desc = desc.replace(/^item:\s*/i, "").trim();
+  const sizeIdx = desc.search(/\bsize:\s*/i);
+  if (sizeIdx > 0) desc = desc.slice(0, sizeIdx).trim();
   const withoutPrefix = desc.replace(/^glossy\s+/i, "").trim();
-  return withoutPrefix.length > 0 ? withoutPrefix : desc;
+  return withoutPrefix.length > 0 ? withoutPrefix : item.description.trim();
 }
 
 export type ParsedToRunResult =
