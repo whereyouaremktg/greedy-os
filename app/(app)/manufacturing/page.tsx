@@ -25,7 +25,13 @@ export default async function ManufacturingPage({
       .select(
         `id, vendor_id, purchase_order_id, product_id, product_name, variant, quantity, stage,
          expected_completion_date, expected_arrival_date, actual_completion_date,
-         actual_arrival_date, notes, created_at, updated_at,
+         actual_arrival_date, notes,
+         product_cost_usd, sell_price_per_unit_usd,
+         air_freight_usd, sea_freight_usd,
+         air_landed_per_unit_usd, sea_landed_per_unit_usd,
+         air_margin_per_unit_usd, sea_margin_per_unit_usd,
+         air_margin_percent, sea_margin_percent,
+         created_at, updated_at,
          vendors!inner ( name )`,
       )
       .order("expected_arrival_date", {
@@ -70,6 +76,16 @@ export default async function ManufacturingPage({
     actual_completion_date: row.actual_completion_date,
     actual_arrival_date: row.actual_arrival_date,
     notes: row.notes,
+    product_cost_usd: row.product_cost_usd,
+    sell_price_per_unit_usd: row.sell_price_per_unit_usd,
+    air_freight_usd: row.air_freight_usd,
+    sea_freight_usd: row.sea_freight_usd,
+    air_landed_per_unit_usd: row.air_landed_per_unit_usd,
+    sea_landed_per_unit_usd: row.sea_landed_per_unit_usd,
+    air_margin_per_unit_usd: row.air_margin_per_unit_usd,
+    sea_margin_per_unit_usd: row.sea_margin_per_unit_usd,
+    air_margin_percent: row.air_margin_percent,
+    sea_margin_percent: row.sea_margin_percent,
     created_at: row.created_at,
     updated_at: row.updated_at,
     vendor_name:

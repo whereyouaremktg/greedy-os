@@ -20,6 +20,58 @@ export type LandedMarginResult = {
   scenarios: LandedMarginScenario[];
 };
 
+export type RunCostingInput = {
+  product_cost_usd: number;
+  sell_price_per_unit_usd: number | null;
+  air_freight_usd: number | null;
+  sea_freight_usd: number | null;
+  air_landed_per_unit_usd: number | null;
+  sea_landed_per_unit_usd: number | null;
+  air_margin_per_unit_usd: number | null;
+  sea_margin_per_unit_usd: number | null;
+  air_margin_percent: number | null;
+  sea_margin_percent: number | null;
+};
+
+function scenarioField(
+  result: LandedMarginResult,
+  mode: FreightMode,
+): LandedMarginScenario | undefined {
+  return result.scenarios.find((s) => s.mode === mode);
+}
+
+export function landedMarginResultToRunCosting(
+  result: LandedMarginResult,
+): RunCostingInput {
+  const air = scenarioField(result, "air");
+  const sea = scenarioField(result, "sea");
+
+  return {
+    product_cost_usd: result.productCostUsd,
+    sell_price_per_unit_usd: result.sellPricePerUnitUsd,
+    air_freight_usd: air?.freightUsd ?? null,
+    sea_freight_usd: sea?.freightUsd ?? null,
+    air_landed_per_unit_usd: air?.landedPerUnitUsd ?? null,
+    sea_landed_per_unit_usd: sea?.landedPerUnitUsd ?? null,
+    air_margin_per_unit_usd: air?.marginPerUnitUsd ?? null,
+    sea_margin_per_unit_usd: sea?.marginPerUnitUsd ?? null,
+    air_margin_percent: air?.marginPercent ?? null,
+    sea_margin_percent: sea?.marginPercent ?? null,
+  };
+}
+
+export function runHasCosting(run: {
+  air_freight_usd?: number | null;
+  sea_freight_usd?: number | null;
+  product_cost_usd?: number | null;
+}): boolean {
+  return (
+    run.air_freight_usd != null ||
+    run.sea_freight_usd != null ||
+    run.product_cost_usd != null
+  );
+}
+
 export function lineItemCostUsd(
   unitPrice: number | undefined,
   quantity: number,
@@ -105,32 +157,4 @@ export function computeLandedMargin(input: {
     sellPricePerUnitUsd: sell,
     scenarios,
   };
-}
-
-export function formatCostingNotes(result: LandedMarginResult): string {
-  const lines = [
-    "Costing (estimated):",
-    `Product cost: $${result.productCostUsd.toLocaleString("en-US", { maximumFractionDigits: 2 })} (${result.quantity.toLocaleString()} units)`,
-  ];
-
-  if (result.sellPricePerUnitUsd != null) {
-    lines.push(
-      `Sell price: $${result.sellPricePerUnitUsd.toLocaleString("en-US", { maximumFractionDigits: 2 })}/unit`,
-    );
-  }
-
-  for (const s of result.scenarios) {
-    const mode = s.mode === "air" ? "Air" : "Sea";
-    const freight = `$${s.freightUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })} freight`;
-    const landed = `$${s.landedPerUnitUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/unit landed`;
-    if (s.marginPercent != null && s.marginPerUnitUsd != null) {
-      lines.push(
-        `${mode}: ${freight} → ${landed}, margin $${s.marginPerUnitUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/unit (${s.marginPercent.toFixed(1)}%)`,
-      );
-    } else {
-      lines.push(`${mode}: ${freight} → ${landed}`);
-    }
-  }
-
-  return lines.join("\n");
 }

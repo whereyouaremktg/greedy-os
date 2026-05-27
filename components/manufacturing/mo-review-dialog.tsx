@@ -17,7 +17,7 @@ import {
 } from "@/components/documents/review-dialog-shell";
 import { createRunFromParsed } from "@/lib/actions/manufacturing";
 import {
-  formatCostingNotes,
+  landedMarginResultToRunCosting,
   manufacturingProductCostUsd,
   type LandedMarginResult,
 } from "@/lib/costing/landed-margin";
@@ -46,10 +46,11 @@ export function MoReviewDialog({ parsed, open, onOpenChange }: Props) {
 
     setSubmitting(true);
     try {
-      const costingNotes = costingResult
-        ? formatCostingNotes(costingResult)
-        : undefined;
-      const result = await createRunFromParsed(parsed, { costingNotes });
+      const result = await createRunFromParsed(parsed, {
+        costing: costingResult
+          ? landedMarginResultToRunCosting(costingResult)
+          : undefined,
+      });
       if (result.ok) {
         toast.success(
           `Created run — ${result.data.quantity.toLocaleString()} ${result.data.product_name} (${result.data.vendor_name})`,

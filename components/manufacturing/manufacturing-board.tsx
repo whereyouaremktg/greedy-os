@@ -30,6 +30,7 @@ import {
   STAGE_LABELS,
   type ManufacturingStage,
 } from "@/lib/manufacturing/stages";
+import { RunCostingCallout } from "@/components/costing/run-costing-callout";
 import { usePrefersReducedMotion } from "@/components/relative-time";
 import type { ManufacturingRunRow } from "@/components/manufacturing/types";
 import { Badge } from "@/components/ui/badge";
@@ -165,6 +166,7 @@ function RunCardContent({
         expectedArrival={run.expected_arrival_date}
         stage={run.stage}
       />
+      <RunCostingCallout run={run} />
     </div>
   );
 }

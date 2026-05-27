@@ -14,6 +14,16 @@ export type ManufacturingRunRow = {
   actual_completion_date: string | null;
   actual_arrival_date: string | null;
   notes: string | null;
+  product_cost_usd: number | null;
+  sell_price_per_unit_usd: number | null;
+  air_freight_usd: number | null;
+  sea_freight_usd: number | null;
+  air_landed_per_unit_usd: number | null;
+  sea_landed_per_unit_usd: number | null;
+  air_margin_per_unit_usd: number | null;
+  sea_margin_per_unit_usd: number | null;
+  air_margin_percent: number | null;
+  sea_margin_percent: number | null;
   created_at: string;
   updated_at: string;
   vendor_name: string;

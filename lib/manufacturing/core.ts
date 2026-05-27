@@ -25,6 +25,16 @@ export type CreateRunInput = {
   actual_completion_date?: string | null;
   actual_arrival_date?: string | null;
   notes?: string | null;
+  product_cost_usd?: number | null;
+  sell_price_per_unit_usd?: number | null;
+  air_freight_usd?: number | null;
+  sea_freight_usd?: number | null;
+  air_landed_per_unit_usd?: number | null;
+  sea_landed_per_unit_usd?: number | null;
+  air_margin_per_unit_usd?: number | null;
+  sea_margin_per_unit_usd?: number | null;
+  air_margin_percent?: number | null;
+  sea_margin_percent?: number | null;
 };
 
 export type UpdateRunInput = CreateRunInput;
@@ -64,6 +74,16 @@ export async function createRunCore(
     actual_completion_date: input.actual_completion_date ?? null,
     actual_arrival_date: input.actual_arrival_date ?? null,
     notes: input.notes ?? null,
+    product_cost_usd: input.product_cost_usd ?? null,
+    sell_price_per_unit_usd: input.sell_price_per_unit_usd ?? null,
+    air_freight_usd: input.air_freight_usd ?? null,
+    sea_freight_usd: input.sea_freight_usd ?? null,
+    air_landed_per_unit_usd: input.air_landed_per_unit_usd ?? null,
+    sea_landed_per_unit_usd: input.sea_landed_per_unit_usd ?? null,
+    air_margin_per_unit_usd: input.air_margin_per_unit_usd ?? null,
+    sea_margin_per_unit_usd: input.sea_margin_per_unit_usd ?? null,
+    air_margin_percent: input.air_margin_percent ?? null,
+    sea_margin_percent: input.sea_margin_percent ?? null,
     ...(actorUserId ? { created_by: actorUserId } : {}),
   };
 
@@ -206,6 +226,16 @@ export async function updateRunCore(
     actual_completion_date: input.actual_completion_date ?? null,
     actual_arrival_date: input.actual_arrival_date ?? null,
     notes: input.notes ?? null,
+    product_cost_usd: input.product_cost_usd ?? null,
+    sell_price_per_unit_usd: input.sell_price_per_unit_usd ?? null,
+    air_freight_usd: input.air_freight_usd ?? null,
+    sea_freight_usd: input.sea_freight_usd ?? null,
+    air_landed_per_unit_usd: input.air_landed_per_unit_usd ?? null,
+    sea_landed_per_unit_usd: input.sea_landed_per_unit_usd ?? null,
+    air_margin_per_unit_usd: input.air_margin_per_unit_usd ?? null,
+    sea_margin_per_unit_usd: input.sea_margin_per_unit_usd ?? null,
+    air_margin_percent: input.air_margin_percent ?? null,
+    sea_margin_percent: input.sea_margin_percent ?? null,
   };
 
   const { data, error } = await supabase

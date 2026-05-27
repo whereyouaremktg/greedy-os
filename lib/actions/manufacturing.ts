@@ -12,6 +12,7 @@ import {
   type CreateRunInput,
 } from "@/lib/manufacturing/core";
 import { parsedToCreateRunInput } from "@/lib/manufacturing/from-parsed";
+import type { RunCostingInput } from "@/lib/costing/landed-margin";
 import {
   parsedManufacturingOrderSchema,
   type ParsedManufacturingOrder,
@@ -171,7 +172,7 @@ export async function updateRunStage(
 
 export async function createRunFromParsed(
   parsed: ParsedManufacturingOrder,
-  options?: { vendorId?: string; costingNotes?: string },
+  options?: { vendorId?: string; costing?: RunCostingInput },
 ): Promise<CoreResult<RunFromParsedResult>> {
   const validated = parsedManufacturingOrderSchema.safeParse(parsed);
   if (!validated.success) {
@@ -191,13 +192,9 @@ export async function createRunFromParsed(
     return validationError(mapped.error);
   }
 
-  const costingNotes = options?.costingNotes?.trim();
-  const input =
-    costingNotes && mapped.input.notes
-      ? { ...mapped.input, notes: `${mapped.input.notes}\n\n${costingNotes}` }
-      : costingNotes
-        ? { ...mapped.input, notes: costingNotes }
-        : mapped.input;
+  const input = options?.costing
+    ? { ...mapped.input, ...options.costing }
+    : mapped.input;
 
   const result = await createRunCore(
     auth.supabase,
