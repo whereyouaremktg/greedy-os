@@ -68,6 +68,10 @@ export function VendorTable({
     }
   }
 
+  function closeCreateSheet() {
+    handleCreateOpenChange(false)
+  }
+
   function handleDelete() {
     if (!deleting) return
     const target = deleting
@@ -76,10 +80,16 @@ export function VendorTable({
       if (result.ok) {
         toast.success(`Deleted ${target.name}`)
         setDeleting(null)
+        router.refresh()
       } else {
         toast.error(result.error)
       }
     })
+  }
+
+  function handleMutationSuccess(closeSheet: () => void) {
+    closeSheet()
+    router.refresh()
   }
 
   return (
@@ -174,8 +184,8 @@ export function VendorTable({
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-4 pb-4">
             <VendorForm
-              onSuccess={() => setCreateOpen(false)}
-              onCancel={() => setCreateOpen(false)}
+              onSuccess={() => handleMutationSuccess(closeCreateSheet)}
+              onCancel={closeCreateSheet}
             />
           </div>
         </SheetContent>
@@ -198,7 +208,7 @@ export function VendorTable({
             {editing ? (
               <VendorForm
                 vendor={editing}
-                onSuccess={() => setEditing(null)}
+                onSuccess={() => handleMutationSuccess(() => setEditing(null))}
                 onCancel={() => setEditing(null)}
               />
             ) : null}
