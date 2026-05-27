@@ -64,7 +64,7 @@ export async function createPurchaseOrder(
 
 export async function createPurchaseOrderFromParsed(
   parsed: z.infer<typeof parsedPurchaseOrderSchema>,
-  vendorId?: string,
+  options?: { vendorId?: string; costingNotes?: string },
 ): Promise<
   ActionResult<{
     id: string;
@@ -80,9 +80,15 @@ export async function createPurchaseOrderFromParsed(
     return { ok: false, error: flattenZod(validated.error) };
   }
 
-  return createPurchaseOrder(
-    parsedToCreateInput(validated.data, vendorId),
-  );
+  const input = parsedToCreateInput(validated.data, options?.vendorId);
+  const costingNotes = options?.costingNotes?.trim();
+  if (costingNotes) {
+    input.notes = input.notes
+      ? `${input.notes}\n\n${costingNotes}`
+      : costingNotes;
+  }
+
+  return createPurchaseOrder(input);
 }
 
 export async function getPurchaseOrderDetail(id: string) {

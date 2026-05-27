@@ -171,7 +171,7 @@ export async function updateRunStage(
 
 export async function createRunFromParsed(
   parsed: ParsedManufacturingOrder,
-  vendorId?: string,
+  options?: { vendorId?: string; costingNotes?: string },
 ): Promise<CoreResult<RunFromParsedResult>> {
   const validated = parsedManufacturingOrderSchema.safeParse(parsed);
   if (!validated.success) {
@@ -185,16 +185,24 @@ export async function createRunFromParsed(
     auth.supabase,
     auth.user!.id,
     validated.data,
-    vendorId,
+    options?.vendorId,
   );
   if (!mapped.ok) {
     return validationError(mapped.error);
   }
 
+  const costingNotes = options?.costingNotes?.trim();
+  const input =
+    costingNotes && mapped.input.notes
+      ? { ...mapped.input, notes: `${mapped.input.notes}\n\n${costingNotes}` }
+      : costingNotes
+        ? { ...mapped.input, notes: costingNotes }
+        : mapped.input;
+
   const result = await createRunCore(
     auth.supabase,
     auth.user!.id,
-    mapped.input,
+    input,
   );
   if (!result.ok) return result;
 

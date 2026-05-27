@@ -22,7 +22,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { LandedMarginPanel } from "@/components/costing/landed-margin-panel";
 import { createRunFromParsed } from "@/lib/actions/manufacturing";
+import {
+  formatCostingNotes,
+  manufacturingProductCostUsd,
+  type LandedMarginResult,
+} from "@/lib/costing/landed-margin";
 import { formatUsd } from "@/lib/format";
 import {
   isAncillaryLine,
@@ -40,13 +46,18 @@ type Props = {
 export function MoReviewDialog({ parsed, open, onOpenChange }: Props) {
   const router = useRouter();
   const [submitting, setSubmitting] = React.useState(false);
+  const [costingResult, setCostingResult] =
+    React.useState<LandedMarginResult | null>(null);
 
   async function handleSave() {
     if (!parsed) return;
 
     setSubmitting(true);
     try {
-      const result = await createRunFromParsed(parsed);
+      const costingNotes = costingResult
+        ? formatCostingNotes(costingResult)
+        : undefined;
+      const result = await createRunFromParsed(parsed, { costingNotes });
       if (result.ok) {
         toast.success(
           `Created run — ${result.data.quantity.toLocaleString()} ${result.data.product_name} (${result.data.vendor_name})`,
@@ -67,10 +78,11 @@ export function MoReviewDialog({ parsed, open, onOpenChange }: Props) {
 
   const primary = pickPrimaryLineItem(parsed);
   const productName = productNameFromLine(primary);
+  const productCostUsd = manufacturingProductCostUsd(parsed);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Review parsed manufacturing order</DialogTitle>
           <DialogDescription>
@@ -153,6 +165,15 @@ export function MoReviewDialog({ parsed, open, onOpenChange }: Props) {
             </TableBody>
           </Table>
         </div>
+
+        <LandedMarginPanel
+          key={parsed.pi_number ?? parsed.vendor_name}
+          quantity={primary.quantity}
+          defaultProductCostUsd={productCostUsd}
+          productCostLabel="Factory invoice total (USD)"
+          sellPriceLabel="Sell price / unit (DTC or wholesale)"
+          onResultChange={setCostingResult}
+        />
 
         <DialogFooter>
           <Button
