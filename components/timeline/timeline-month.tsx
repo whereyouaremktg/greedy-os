@@ -104,19 +104,35 @@ export function TimelineMonth({
                   </span>
                   {dayEvents.length > 0 && inMonth ? (
                     <div className="mt-1 space-y-0.5">
-                      {dayEvents.slice(0, 2).map((e) => (
-                        <span
-                          key={e.id}
-                          className={cn(
-                            "block truncate rounded px-1 py-0.5 text-[9px] font-medium leading-tight",
-                            CATEGORY_COLORS[e.category].bar,
-                            e.urgency === "overdue" && "ring-1 ring-destructive/50",
-                          )}
-                          title={e.title}
-                        >
-                          {e.title}
-                        </span>
-                      ))}
+                      {dayEvents.slice(0, 2).map((e) => {
+                        const variant = e.meta?.find(
+                          (m) => m.label === "Variant",
+                        )?.value;
+                        const sub = variant ?? e.accent;
+                        return (
+                          <button
+                            key={e.id}
+                            type="button"
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setSelectedDay(day);
+                              onSelectEvent(e);
+                            }}
+                            className={cn(
+                              "block w-full truncate rounded px-1 py-0.5 text-left text-[9px] font-medium leading-tight",
+                              CATEGORY_COLORS[e.category].bar,
+                              e.urgency === "overdue" &&
+                                "ring-1 ring-destructive/50",
+                            )}
+                            title={`${e.title}${sub ? ` — ${sub}` : ""}`}
+                          >
+                            {e.title}
+                            {sub ? (
+                              <span className="opacity-75"> · {sub}</span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
                       {dayEvents.length > 2 ? (
                         <span className="text-[9px] text-muted-foreground px-1">
                           +{dayEvents.length - 2} more
