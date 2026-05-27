@@ -17,3 +17,23 @@ export function verifyCronSecret(request: Request): Response | null {
   }
   return null;
 }
+
+function cronErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return "Cron job failed";
+}
+
+/** Runs a puller and returns JSON — never an unhandled stack-trace 500. */
+export async function runCronJob<T>(
+  job: () => Promise<T>,
+): Promise<Response> {
+  try {
+    const result = await job();
+    return Response.json(result);
+  } catch (err) {
+    return Response.json(
+      { ok: false, error: cronErrorMessage(err) },
+      { status: 500 },
+    );
+  }
+}

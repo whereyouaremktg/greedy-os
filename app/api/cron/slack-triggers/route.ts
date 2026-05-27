@@ -1,5 +1,5 @@
 import { getISOWeek, getISOWeekYear } from "date-fns";
-import { verifyCronSecret } from "@/lib/cron-auth";
+import { runCronJob, verifyCronSecret } from "@/lib/cron-auth";
 import { getSlackDefaultChannel } from "@/lib/slack/client";
 import { sendSlack } from "@/lib/slack/dispatch";
 import {
@@ -33,6 +33,7 @@ export async function GET(request: Request) {
   const denied = verifyCronSecret(request);
   if (denied) return denied;
 
+  return runCronJob(async () => {
   const supabase = createServiceClient();
   const channel = getSlackDefaultChannel();
   const today = todayIso();
@@ -185,5 +186,6 @@ export async function GET(request: Request) {
     else summary.ar.skipped++;
   }
 
-  return Response.json({ ok: true, summary, week });
+  return { ok: true, summary, week };
+  });
 }
