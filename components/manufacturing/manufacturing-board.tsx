@@ -20,7 +20,8 @@ import { toast } from "sonner";
 
 import { updateRunStage } from "@/lib/actions/manufacturing";
 import {
-  formatArrivalLabel,
+  formatArrivalDisplay,
+  formatDaysToBadge,
   getArrivalPillVariant,
   todayIso,
 } from "@/lib/manufacturing/dates";
@@ -54,7 +55,7 @@ function applyStageSideEffects(
   return next;
 }
 
-function ArrivalPill({
+function ArrivalCallout({
   expectedArrival,
   stage,
 }: {
@@ -62,19 +63,56 @@ function ArrivalPill({
   stage: ManufacturingStage;
 }) {
   const variant = getArrivalPillVariant(expectedArrival, stage);
+  const hasDate = !!expectedArrival;
+
   return (
-    <span
+    <div
       className={cn(
-        "inline-flex rounded-md px-1.5 py-0.5 text-[11px] tabular-nums",
-        variant === "overdue" &&
-          "bg-destructive/10 text-destructive dark:bg-destructive/20",
-        variant === "soon" &&
-          "bg-warning/15 text-warning-foreground dark:text-warning",
-        variant === "neutral" && "bg-muted text-muted-foreground",
+        "mt-2.5 flex items-center justify-between gap-2 rounded-md border px-2.5 py-2",
+        !hasDate && "border-dashed border-border/80 bg-muted/25",
+        hasDate &&
+          variant === "overdue" &&
+          "border-destructive/35 bg-destructive/8",
+        hasDate &&
+          variant === "soon" &&
+          "border-warning/45 bg-warning/12",
+        hasDate &&
+          variant === "neutral" &&
+          "border-brand/25 bg-brand/8",
       )}
     >
-      {formatArrivalLabel(expectedArrival)}
-    </span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          Expected arrival
+        </p>
+        <p
+          className={cn(
+            "num mt-0.5 truncate text-sm font-semibold tabular-nums leading-tight",
+            !hasDate && "font-normal text-muted-foreground",
+            hasDate && variant === "overdue" && "text-destructive",
+            hasDate && variant === "soon" && "text-foreground",
+            hasDate && variant === "neutral" && "text-foreground",
+          )}
+        >
+          {formatArrivalDisplay(expectedArrival)}
+        </p>
+      </div>
+      {hasDate ? (
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums",
+            variant === "overdue" &&
+              "bg-destructive/15 text-destructive dark:bg-destructive/25",
+            variant === "soon" &&
+              "bg-warning/20 text-warning-foreground dark:text-warning",
+            variant === "neutral" &&
+              "bg-background/80 text-muted-foreground ring-1 ring-border/60",
+          )}
+        >
+          {formatDaysToBadge(expectedArrival)}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -123,12 +161,10 @@ function RunCardContent({
         <span className="truncate">{run.vendor_name}</span>
         <span className="num shrink-0">{run.quantity.toLocaleString()}</span>
       </div>
-      <div className="mt-2">
-        <ArrivalPill
-          expectedArrival={run.expected_arrival_date}
-          stage={run.stage}
-        />
-      </div>
+      <ArrivalCallout
+        expectedArrival={run.expected_arrival_date}
+        stage={run.stage}
+      />
     </div>
   );
 }

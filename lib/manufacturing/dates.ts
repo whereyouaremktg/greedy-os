@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
 
 import type { ManufacturingStage } from "@/lib/manufacturing/stages";
 
@@ -31,6 +31,17 @@ export function formatArrivalLabel(expectedArrival: string | null): string {
   if (diff < 0) return expectedArrival;
   if (diff === 0) return "Today";
   return expectedArrival;
+}
+
+/** Primary arrival line for cards and summaries. */
+export function formatArrivalDisplay(expectedArrival: string | null): string {
+  if (!expectedArrival) return "Not set";
+  const diff = differenceInCalendarDays(
+    parseISO(expectedArrival),
+    parseISO(todayIso()),
+  );
+  if (diff === 0) return "Today";
+  return format(parseISO(expectedArrival), "MMM d, yyyy");
 }
 
 export function formatDaysToBadge(expectedArrival: string | null): string {
