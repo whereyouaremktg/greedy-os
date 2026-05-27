@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { createVendorCore } from "@/lib/vendors/core";
+import { findOrCreateVendorByName as findOrCreateVendorByNameLookup } from "@/lib/vendors/lookup";
 import type { CreatePurchaseOrderInput } from "@/lib/purchase-orders/schema";
 import { latestCancelDate } from "@/lib/purchase-orders/schema";
 import type { Database } from "@/types/db";
@@ -30,36 +30,7 @@ export async function findOrCreateVendorByName(
 ): Promise<
   PoCoreResult<{ id: string; name: string; created: boolean }>
 > {
-  const trimmed = name.trim();
-  if (!trimmed) {
-    return { ok: false, error: { code: "INVALID", message: "Vendor name required" } };
-  }
-
-  const { data: existing, error: lookupError } = await supabase
-    .from("vendors")
-    .select("id, name")
-    .ilike("name", trimmed)
-    .limit(1)
-    .maybeSingle();
-
-  if (lookupError) {
-    return { ok: false, error: dbError(lookupError, "Failed to look up vendor") };
-  }
-
-  if (existing) {
-    return { ok: true, data: { ...existing, created: false } };
-  }
-
-  const created = await createVendorCore(supabase, actorUserId, {
-    name: trimmed,
-  });
-
-  if (!created.ok) return created;
-
-  return {
-    ok: true,
-    data: { ...created.data, created: true },
-  };
+  return findOrCreateVendorByNameLookup(supabase, actorUserId, name);
 }
 
 export type PurchaseOrderSummary = {

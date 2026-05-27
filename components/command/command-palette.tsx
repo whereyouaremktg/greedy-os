@@ -21,6 +21,7 @@ import {
   Moon,
   Sun,
   Plus,
+  FileUp,
   Settings,
   CalendarRange,
 } from "lucide-react";
@@ -122,6 +123,13 @@ function CommandPaletteDialog() {
           >
             <Plus className="size-4 text-muted-foreground" />
             Create run
+          </CommandItem>
+          <CommandItem
+            value="Upload factory proforma"
+            onSelect={() => run(() => router.push("/manufacturing?upload=1"))}
+          >
+            <FileUp className="size-4 text-muted-foreground" />
+            Upload factory proforma
           </CommandItem>
           <CommandItem
             value="Create campaign"

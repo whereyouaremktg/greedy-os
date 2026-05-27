@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
-import { FileUp, Send } from "lucide-react";
+import { Factory, FileUp, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,11 @@ import { cn } from "@/lib/utils";
 import { enrichNumbers } from "@/components/chat/number-inline";
 import { StreamingDots } from "@/components/chat/streaming-dots";
 import { renderToolPart } from "@/components/chat/tool-chip";
+import {
+  pickPrimaryLineItem,
+  productNameFromLine,
+} from "@/lib/manufacturing/from-parsed";
+import type { ParsedManufacturingOrder } from "@/lib/manufacturing/parse-schema";
 import type { ParsedPurchaseOrder } from "@/lib/purchase-orders/schema";
 
 const ANALYST_PROMPTS = [
@@ -24,6 +29,25 @@ const ACTION_PROMPTS = [
   "Create a run for Alpine Apothecary, 500 units Daily Cleanser, ETA 2026-06-05",
   "Move the Brightening Serum run to in_transit",
 ] as const;
+
+function buildParsedMoMessage(parsed: ParsedManufacturingOrder): string {
+  const primary = pickPrimaryLineItem(parsed);
+  const productName = productNameFromLine(primary);
+  const piLabel = parsed.pi_number ?? "unknown";
+  return [
+    `I uploaded a factory proforma (${piLabel}) from ${parsed.vendor_name}.`,
+    `Product line: ${productName}, ${primary.quantity.toLocaleString()} units.`,
+    parsed.expected_arrival_date
+      ? `Expected arrival: ${parsed.expected_arrival_date}.`
+      : null,
+    "Please create a manufacturing run from this order.",
+    "",
+    "Parsed manufacturing order JSON:",
+    JSON.stringify(parsed, null, 2),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
 
 function buildParsedPoMessage(parsed: ParsedPurchaseOrder): string {
   const poLabel = parsed.vendor_po_number ?? parsed.order_number ?? "unknown";
@@ -40,7 +64,8 @@ function buildParsedPoMessage(parsed: ParsedPurchaseOrder): string {
 export function ChatPanel() {
   const [input, setInput] = useState("");
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const poFileInputRef = useRef<HTMLInputElement>(null);
+  const moFileInputRef = useRef<HTMLInputElement>(null);
   const { messages, sendMessage, status } = useChat();
   const isStreaming = status === "streaming" || status === "submitted";
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -58,7 +83,13 @@ export function ChatPanel() {
     [isStreaming, sendMessage],
   );
 
-  async function handlePoUpload(file: File) {
+  async function parseAndSend<T>(
+    file: File,
+    endpoint: string,
+    buildMessage: (data: T) => string,
+    successToast: string,
+    errorToast: string,
+  ) {
     if (uploading || isStreaming) return;
 
     setUploading(true);
@@ -66,34 +97,52 @@ export function ChatPanel() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/purchase-orders/parse", {
-        method: "POST",
-        body: formData,
-      });
-
+      const res = await fetch(endpoint, { method: "POST", body: formData });
       const json = (await res.json()) as {
         ok: boolean;
-        data?: ParsedPurchaseOrder;
+        data?: T;
         error?: string;
       };
 
       if (!res.ok || !json.ok || !json.data) {
-        toast.error(json.error ?? "Failed to parse purchase order");
+        toast.error(json.error ?? errorToast);
         return;
       }
 
-      send(buildParsedPoMessage(json.data));
-      toast.success("PO parsed — asking analyst to save");
+      send(buildMessage(json.data));
+      toast.success(successToast);
     } catch {
-      toast.error("Failed to upload purchase order");
+      toast.error(errorToast);
     } finally {
       setUploading(false);
     }
   }
 
-  function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function onPoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) void handlePoUpload(file);
+    if (file) {
+      void parseAndSend(
+        file,
+        "/api/purchase-orders/parse",
+        buildParsedPoMessage,
+        "PO parsed — asking analyst to save",
+        "Failed to upload purchase order",
+      );
+    }
+    e.target.value = "";
+  }
+
+  function onMoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      void parseAndSend(
+        file,
+        "/api/manufacturing/parse",
+        buildParsedMoMessage,
+        "Proforma parsed — asking analyst to create run",
+        "Failed to upload proforma",
+      );
+    }
     e.target.value = "";
   }
 
@@ -126,8 +175,8 @@ export function ChatPanel() {
             <div className="space-y-3 py-2">
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Ask about cash, AR, revenue, pipeline, or ops data pulled from
-                the cache. Upload a PO image to extract and save wholesale
-                orders, or create manufacturing runs.
+                the cache. Upload a wholesale PO or factory proforma to create
+                orders and production runs.
               </p>
               <div className="space-y-2">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -219,21 +268,38 @@ export function ChatPanel() {
         className="flex gap-2 border-t p-3"
       >
         <input
-          ref={fileInputRef}
+          ref={poFileInputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp"
           className="hidden"
-          onChange={onFileChange}
+          onChange={onPoFileChange}
+        />
+        <input
+          ref={moFileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={onMoFileChange}
         />
         <Button
           type="button"
           size="icon-sm"
           variant="outline"
           disabled={isStreaming || uploading}
-          onClick={() => fileInputRef.current?.click()}
-          title="Upload PO"
+          onClick={() => poFileInputRef.current?.click()}
+          title="Upload wholesale PO"
         >
           <FileUp className={cn("size-3.5", uploading && "animate-pulse")} />
+        </Button>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="outline"
+          disabled={isStreaming || uploading}
+          onClick={() => moFileInputRef.current?.click()}
+          title="Upload factory proforma"
+        >
+          <Factory className={cn("size-3.5", uploading && "animate-pulse")} />
         </Button>
         <Input
           value={input}

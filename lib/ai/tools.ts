@@ -24,6 +24,7 @@ import {
   createPurchaseOrderCore,
 } from "@/lib/purchase-orders/core";
 import { createPurchaseOrderInputSchema } from "@/lib/purchase-orders/schema";
+import { findOrCreateVendorByName } from "@/lib/vendors/lookup";
 import { createVendorCore, createVendorInput } from "@/lib/vendors/core";
 import type { ManufacturingStage } from "@/lib/manufacturing/stages";
 import type { Database } from "@/types/db";
@@ -357,21 +358,37 @@ export function makeGlowTools(ctx: GlowToolCtx) {
 
     createManufacturingRun: tool({
       description:
-        "Create a new manufacturing run (production order). Before creating, call listProducts or use the products list in DATA to resolve the product. If a match is found, pass BOTH product_id and product_name (use the canonical product name from the catalog). If no match, ask the user whether to createProduct first or proceed with just product_name. Resolve vendor by name first via listVendors.",
-      inputSchema: z.object({
-        vendor_id: z.string().uuid(),
-        product_id: z.string().uuid().optional(),
-        product_name: z.string().min(1),
-        variant: z.string().optional(),
-        quantity: z.number().int().positive(),
-        expected_completion_date: z.string().date().optional(),
-        expected_arrival_date: z.string().date().optional(),
-        notes: z.string().optional(),
-      }),
+        "Create a new manufacturing run (factory production order / proforma). Resolve factory via vendor_name (creates vendor if missing) or vendor_id. Before creating, use products in DATA or listProducts; if a match is found pass product_id and canonical product_name. Use parsed MO JSON from uploads when the user confirms.",
+      inputSchema: z
+        .object({
+          vendor_id: z.string().uuid().optional(),
+          vendor_name: z.string().min(1).max(200).optional(),
+          product_id: z.string().uuid().optional(),
+          product_name: z.string().min(1),
+          variant: z.string().optional(),
+          quantity: z.number().int().positive(),
+          expected_completion_date: z.string().date().optional(),
+          expected_arrival_date: z.string().date().optional(),
+          notes: z.string().optional(),
+        })
+        .refine((d) => Boolean(d.vendor_id || d.vendor_name?.trim()), {
+          message: "Provide vendor_id or vendor_name",
+        }),
       execute: async (input) =>
         runTool(async () => {
+          let vendorId = input.vendor_id ?? null;
+          if (!vendorId) {
+            const vendor = await findOrCreateVendorByName(
+              supabase,
+              actorUserId,
+              input.vendor_name!,
+            );
+            if (!vendor.ok) return vendor;
+            vendorId = vendor.data.id;
+          }
+
           const created = await createRunCore(supabase, actorUserId, {
-            vendor_id: input.vendor_id,
+            vendor_id: vendorId,
             product_id: input.product_id ?? null,
             product_name: input.product_name.trim(),
             variant: input.variant?.trim() || null,

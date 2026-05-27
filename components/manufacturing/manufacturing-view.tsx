@@ -2,13 +2,16 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import { FileUp, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteRun } from "@/lib/actions/manufacturing";
 import { ManufacturingBoard } from "@/components/manufacturing/manufacturing-board";
 import { ManufacturingTable } from "@/components/manufacturing/manufacturing-table";
+import { MoReviewDialog } from "@/components/manufacturing/mo-review-dialog";
+import { MoUploadDropzone } from "@/components/manufacturing/mo-upload";
 import { RunForm } from "@/components/manufacturing/run-form";
+import type { ParsedManufacturingOrder } from "@/lib/manufacturing/parse-schema";
 import type {
   ManufacturingRunRow,
   ProductOption,
@@ -40,16 +43,23 @@ export function ManufacturingView({
   purchaseOrders,
   products,
   initialCreateOpen = false,
+  initialUploadOpen = false,
 }: {
   initialRuns: ManufacturingRunRow[];
   vendors: VendorOption[];
   purchaseOrders: PurchaseOrderOption[];
   products: ProductOption[];
   initialCreateOpen?: boolean;
+  initialUploadOpen?: boolean;
 }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [createOpen, setCreateOpen] = React.useState(initialCreateOpen);
+  const [uploadOpen, setUploadOpen] = React.useState(initialUploadOpen);
+  const [parsedMo, setParsedMo] = React.useState<ParsedManufacturingOrder | null>(
+    null,
+  );
+  const [reviewOpen, setReviewOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<ManufacturingRunRow | null>(
     null,
   );
@@ -63,7 +73,9 @@ export function ManufacturingView({
     .join("|");
 
   const openCreateFromQuery = searchParams.get("new") === "1";
+  const openUploadFromQuery = searchParams.get("upload") === "1";
   const createSheetOpen = createOpen || openCreateFromQuery;
+  const uploadSheetOpen = uploadOpen || openUploadFromQuery;
 
   function openCreateSheet() {
     setCreateOpen(true);
@@ -78,6 +90,19 @@ export function ManufacturingView({
 
   function closeCreateSheet() {
     handleCreateOpenChange(false);
+  }
+
+  function handleUploadOpenChange(open: boolean) {
+    setUploadOpen(open);
+    if (!open && openUploadFromQuery) {
+      router.replace("/manufacturing");
+    }
+  }
+
+  function handleMoParsed(data: ParsedManufacturingOrder) {
+    setParsedMo(data);
+    setReviewOpen(true);
+    handleUploadOpenChange(false);
   }
 
   function handleMutationSuccess(closeSheet: () => void) {
@@ -114,10 +139,16 @@ export function ManufacturingView({
                 Production runs from order through arrival.
               </p>
             </div>
-            <Button onClick={openCreateSheet}>
-              <Plus />
-              New run
-            </Button>
+            <div className="flex shrink-0 gap-2">
+              <Button variant="outline" onClick={() => setUploadOpen(true)}>
+                <FileUp />
+                Upload proforma
+              </Button>
+              <Button onClick={openCreateSheet}>
+                <Plus />
+                New run
+              </Button>
+            </div>
           </div>
 
           <Tabs defaultValue="board" className="mt-4 gap-4">
@@ -130,11 +161,16 @@ export function ManufacturingView({
               {initialRuns.length === 0 ? (
                 <EmptyState
                   title="No production runs yet"
-                  description="Track manufacturing from order through arrival. Forward an order confirmation to the AI or click New run to log one."
+                  description="Upload a factory proforma to create a run, or log one manually."
                   action={
-                    <EmptyStateAction onClick={openCreateSheet}>
-                      New run
-                    </EmptyStateAction>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <EmptyStateAction onClick={() => setUploadOpen(true)}>
+                        Upload proforma
+                      </EmptyStateAction>
+                      <EmptyStateAction onClick={openCreateSheet}>
+                        New run
+                      </EmptyStateAction>
+                    </div>
                   }
                 />
               ) : (
@@ -150,11 +186,16 @@ export function ManufacturingView({
               {initialRuns.length === 0 ? (
                 <EmptyState
                   title="No production runs yet"
-                  description="Track manufacturing from order through arrival. Forward an order confirmation to the AI or click New run to log one."
+                  description="Upload a factory proforma to create a run, or log one manually."
                   action={
-                    <EmptyStateAction onClick={openCreateSheet}>
-                      New run
-                    </EmptyStateAction>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <EmptyStateAction onClick={() => setUploadOpen(true)}>
+                        Upload proforma
+                      </EmptyStateAction>
+                      <EmptyStateAction onClick={openCreateSheet}>
+                        New run
+                      </EmptyStateAction>
+                    </div>
                   }
                 />
               ) : (
@@ -168,6 +209,27 @@ export function ManufacturingView({
           </Tabs>
         </div>
       </div>
+
+      <Sheet open={uploadSheetOpen} onOpenChange={handleUploadOpenChange}>
+        <SheetContent className="flex w-full flex-col sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Upload proforma</SheetTitle>
+            <SheetDescription>
+              Factory PI or order confirmation — we create a production run from
+              the main product line.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="px-4 pb-4">
+            <MoUploadDropzone onParsed={handleMoParsed} />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <MoReviewDialog
+        parsed={parsedMo}
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+      />
 
       <Sheet open={createSheetOpen} onOpenChange={handleCreateOpenChange}>
         <SheetContent className="flex w-full flex-col sm:max-w-md">

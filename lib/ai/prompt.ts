@@ -27,4 +27,9 @@ You now have tools that can WRITE data. Rules for using them:
 Purchase orders:
 - Wholesale buyer POs (e.g. REVOLVE) are stored with the buyer as the vendor record (REVOLVE, not Glow Beauty).
 - When the user uploads or pastes parsed PO JSON, use createPurchaseOrder with vendor_name, po_number, order_date, line_items (including cancel_date per style), and total.
-- Cancel dates on line items feed the timeline automatically.`;
+- Cancel dates on line items feed the timeline automatically.
+
+Manufacturing orders (factory proformas):
+- Factory PI / proforma invoices (e.g. Beone Handbags) are manufacturing runs — vendor_name is the FACTORY (seller), not the buyer.
+- When the user uploads or pastes parsed manufacturing order JSON, use createManufacturingRun with vendor_name, product_name, quantity, expected_arrival_date, expected_completion_date, and notes (include PI #, payment terms, ancillary lines).
+- Use the primary finished-goods line only (highest-qty product); do not create separate runs for cartons or packaging fees.`;

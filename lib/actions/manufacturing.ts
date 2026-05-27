@@ -11,6 +11,11 @@ import {
   type CoreResult,
   type CreateRunInput,
 } from "@/lib/manufacturing/core";
+import { parsedToCreateRunInput } from "@/lib/manufacturing/from-parsed";
+import {
+  parsedManufacturingOrderSchema,
+  type ParsedManufacturingOrder,
+} from "@/lib/manufacturing/parse-schema";
 import {
   MANUFACTURING_STAGE_VALUES,
   runSchema,
@@ -20,6 +25,15 @@ import type { ManufacturingStage } from "@/lib/manufacturing/stages";
 import { createClient } from "@/lib/supabase/server";
 
 export type { RunFormValues } from "@/lib/manufacturing/run-schema";
+export type { ParsedManufacturingOrder } from "@/lib/manufacturing/parse-schema";
+
+export type RunFromParsedResult = {
+  id: string;
+  product_name: string;
+  quantity: number;
+  vendor_name: string;
+  vendor_created: boolean;
+};
 
 const stageSchema = z.enum(MANUFACTURING_STAGE_VALUES);
 
@@ -153,6 +167,50 @@ export async function updateRunStage(
   );
   if (result.ok) revalidatePath("/manufacturing");
   return result;
+}
+
+export async function createRunFromParsed(
+  parsed: ParsedManufacturingOrder,
+  vendorId?: string,
+): Promise<CoreResult<RunFromParsedResult>> {
+  const validated = parsedManufacturingOrderSchema.safeParse(parsed);
+  if (!validated.success) {
+    return validationError(flattenZod(validated.error));
+  }
+
+  const auth = await getAuthedClient();
+  if (auth.error) return auth.error;
+
+  const mapped = await parsedToCreateRunInput(
+    auth.supabase,
+    auth.user!.id,
+    validated.data,
+    vendorId,
+  );
+  if (!mapped.ok) {
+    return validationError(mapped.error);
+  }
+
+  const result = await createRunCore(
+    auth.supabase,
+    auth.user!.id,
+    mapped.input,
+  );
+  if (!result.ok) return result;
+
+  revalidatePath("/manufacturing");
+  revalidatePath("/timeline");
+
+  return {
+    ok: true,
+    data: {
+      id: result.data.id,
+      product_name: mapped.input.product_name,
+      quantity: mapped.input.quantity,
+      vendor_name: mapped.vendorName,
+      vendor_created: mapped.vendorCreated,
+    },
+  };
 }
 
 export async function deleteRun(

@@ -14,7 +14,7 @@ import type {
 export default async function ManufacturingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ new?: string }>;
+  searchParams: Promise<{ new?: string; upload?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -88,6 +88,7 @@ export default async function ManufacturingPage({
         purchaseOrders={purchaseOrders}
         products={products}
         initialCreateOpen={params.new === "1"}
+        initialUploadOpen={params.upload === "1"}
       />
     </Suspense>
   );
