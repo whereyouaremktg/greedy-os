@@ -63,6 +63,14 @@ export function formatDayKey(iso: string): string {
   return format(parseISO(iso), "EEE, MMM d");
 }
 
+export function formatFullDate(iso: string): string {
+  return format(parseISO(iso), "EEEE, MMMM d, yyyy");
+}
+
+export function humanizeStatus(status: string): string {
+  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function formatEventDateRange(event: {
   date: string;
   endDate?: string | null;

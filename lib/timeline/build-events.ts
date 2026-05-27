@@ -1,7 +1,12 @@
 import { getArrivalPillVariant } from "@/lib/manufacturing/dates";
 import type { ManufacturingStage } from "@/lib/manufacturing/stages";
 import { urgencyForDate } from "@/lib/timeline/urgency";
-import type { TimelineEvent, TimelineUrgency } from "@/lib/timeline/types";
+import { humanizeStatus } from "@/lib/timeline/utils";
+import type {
+  TimelineEvent,
+  TimelineEventMeta,
+  TimelineUrgency,
+} from "@/lib/timeline/types";
 
 type RunRow = {
   id: string;
@@ -80,81 +85,99 @@ function arrivalUrgency(
   stage: ManufacturingStage,
 ): TimelineUrgency {
   if (!date || stage === "received") return "neutral";
-  const variant = getArrivalPillVariant(date, stage);
-  return variant;
+  return getArrivalPillVariant(date, stage);
+}
+
+function meta(
+  pairs: Array<[label: string, value: string | number | null | undefined]>,
+): TimelineEventMeta[] {
+  return pairs
+    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .map(([label, value]) => ({ label, value: String(value) }));
+}
+
+function subtitleFromMeta(items: TimelineEventMeta[]): string | undefined {
+  if (items.length === 0) return undefined;
+  return items.map((m) => m.value).join(" · ");
+}
+
+function formatUsd(n: number): string {
+  return n.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+}
+
+function formatCount(n: number): string {
+  return `${n.toLocaleString()} unit${n === 1 ? "" : "s"}`;
 }
 
 export function buildManufacturingEvents(runs: RunRow[]): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
   for (const run of runs) {
-    const baseSubtitle = [
-      run.vendor_name,
-      run.variant,
-      `${run.quantity.toLocaleString()} units`,
-      run.stage,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    const accent = formatCount(run.quantity);
+    const baseMeta = meta([
+      ["Vendor", run.vendor_name],
+      ["Variant", run.variant],
+      ["Quantity", accent],
+      ["Stage", humanizeStatus(run.stage)],
+    ]);
+
+    function push(
+      suffix: string,
+      date: string,
+      label: string,
+      urgency: TimelineUrgency,
+    ) {
+      events.push({
+        id: `run-${run.id}-${suffix}`,
+        category: "manufacturing",
+        kind: "milestone",
+        date,
+        title: run.product_name,
+        subtitle: subtitleFromMeta(baseMeta),
+        accent,
+        meta: baseMeta,
+        label,
+        status: run.stage,
+        urgency,
+        href: "/manufacturing",
+      });
+    }
 
     if (run.expected_arrival_date) {
-      events.push({
-        id: `run-${run.id}-arrival-expected`,
-        category: "manufacturing",
-        kind: "milestone",
-        date: run.expected_arrival_date,
-        title: run.product_name,
-        subtitle: baseSubtitle,
-        label: "Expected arrival",
-        status: run.stage,
-        urgency: arrivalUrgency(run.expected_arrival_date, run.stage),
-        href: "/manufacturing",
-      });
+      push(
+        "arrival-expected",
+        run.expected_arrival_date,
+        "Expected arrival",
+        arrivalUrgency(run.expected_arrival_date, run.stage),
+      );
     }
-
     if (run.actual_arrival_date) {
-      events.push({
-        id: `run-${run.id}-arrival-actual`,
-        category: "manufacturing",
-        kind: "milestone",
-        date: run.actual_arrival_date,
-        title: run.product_name,
-        subtitle: baseSubtitle,
-        label: "Arrived",
-        status: run.stage,
-        urgency: "neutral",
-        href: "/manufacturing",
-      });
+      push(
+        "arrival-actual",
+        run.actual_arrival_date,
+        "Arrived",
+        "neutral",
+      );
     }
-
     if (run.expected_completion_date) {
-      events.push({
-        id: `run-${run.id}-completion-expected`,
-        category: "manufacturing",
-        kind: "milestone",
-        date: run.expected_completion_date,
-        title: run.product_name,
-        subtitle: baseSubtitle,
-        label: "Expected completion",
-        status: run.stage,
-        urgency: urgencyForDate(run.expected_completion_date),
-        href: "/manufacturing",
-      });
+      push(
+        "completion-expected",
+        run.expected_completion_date,
+        "Expected completion",
+        urgencyForDate(run.expected_completion_date),
+      );
     }
-
     if (run.actual_completion_date) {
-      events.push({
-        id: `run-${run.id}-completion-actual`,
-        category: "manufacturing",
-        kind: "milestone",
-        date: run.actual_completion_date,
-        title: run.product_name,
-        subtitle: baseSubtitle,
-        label: "Completed",
-        status: run.stage,
-        urgency: "neutral",
-        href: "/manufacturing",
-      });
+      push(
+        "completion-actual",
+        run.actual_completion_date,
+        "Completed",
+        "neutral",
+      );
     }
   }
 
@@ -165,8 +188,11 @@ export function buildPurchaseOrderEvents(pos: PoRow[]): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
   for (const po of pos) {
-    const subtitle = [po.vendor_name, po.status].filter(Boolean).join(" · ");
     const title = po.po_number ? `PO ${po.po_number}` : "Purchase order";
+    const baseMeta = meta([
+      ["Vendor", po.vendor_name],
+      ["Status", humanizeStatus(po.status)],
+    ]);
 
     if (po.order_date) {
       events.push({
@@ -175,7 +201,8 @@ export function buildPurchaseOrderEvents(pos: PoRow[]): TimelineEvent[] {
         kind: "milestone",
         date: po.order_date,
         title,
-        subtitle,
+        subtitle: subtitleFromMeta(baseMeta),
+        meta: baseMeta,
         label: "Order placed",
         status: po.status,
         href: "/purchase-orders",
@@ -189,7 +216,8 @@ export function buildPurchaseOrderEvents(pos: PoRow[]): TimelineEvent[] {
         kind: "milestone",
         date: po.expected_date,
         title,
-        subtitle,
+        subtitle: subtitleFromMeta(baseMeta),
+        meta: baseMeta,
         label: "Latest cancel date",
         status: po.status,
         urgency: urgencyForDate(po.expected_date),
@@ -208,14 +236,13 @@ export function buildPoLineCancelEvents(lines: PoLineRow[]): TimelineEvent[] {
     if (!line.cancel_date) continue;
 
     const poLabel = line.po_number ? `PO ${line.po_number}` : "Purchase order";
-    const subtitle = [
-      line.vendor_name,
-      poLabel,
-      line.color,
-      `${line.quantity.toLocaleString()} units`,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    const accent = formatCount(line.quantity);
+    const baseMeta = meta([
+      ["PO", poLabel],
+      ["Vendor", line.vendor_name],
+      ["Color", line.color],
+      ["Quantity", accent],
+    ]);
 
     events.push({
       id: `po-line-${line.id}-cancel`,
@@ -223,7 +250,9 @@ export function buildPoLineCancelEvents(lines: PoLineRow[]): TimelineEvent[] {
       kind: "milestone",
       date: line.cancel_date,
       title: line.product_name,
-      subtitle,
+      subtitle: subtitleFromMeta(baseMeta),
+      accent,
+      meta: baseMeta,
       label: "Cancel date",
       urgency: urgencyForDate(line.cancel_date),
       href: "/purchase-orders",
@@ -238,7 +267,13 @@ export function buildPaymentEvents(payments: PaymentRow[]): TimelineEvent[] {
 
   for (const p of payments) {
     const poLabel = p.po_number ? `PO ${p.po_number}` : "Purchase order";
-    const subtitle = `${poLabel} · ${p.label}`;
+    const accent = formatUsd(p.amount);
+    const paymentType = humanizeStatus(p.label);
+    const baseMeta = meta([
+      ["Purchase order", poLabel],
+      ["Type", paymentType],
+      ["Amount", accent],
+    ]);
 
     if (!p.paid && p.due_date) {
       events.push({
@@ -246,8 +281,10 @@ export function buildPaymentEvents(payments: PaymentRow[]): TimelineEvent[] {
         category: "payment",
         kind: "milestone",
         date: p.due_date,
-        title: `Payment due — ${formatUsd(p.amount)}`,
-        subtitle,
+        title: `${paymentType} due`,
+        subtitle: subtitleFromMeta(baseMeta),
+        accent,
+        meta: baseMeta,
         label: "Payment due",
         status: "unpaid",
         urgency: urgencyForDate(p.due_date, { soonDays: 14 }),
@@ -261,8 +298,10 @@ export function buildPaymentEvents(payments: PaymentRow[]): TimelineEvent[] {
         category: "payment",
         kind: "milestone",
         date: p.paid_date,
-        title: `Paid — ${formatUsd(p.amount)}`,
-        subtitle,
+        title: `${paymentType} paid`,
+        subtitle: subtitleFromMeta(baseMeta),
+        accent,
+        meta: baseMeta,
         label: "Payment made",
         status: "paid",
         urgency: "neutral",
@@ -274,19 +313,14 @@ export function buildPaymentEvents(payments: PaymentRow[]): TimelineEvent[] {
   return events;
 }
 
-function formatUsd(n: number): string {
-  return n.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
-}
-
 export function buildCampaignEvents(campaigns: CampaignRow[]): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
   for (const c of campaigns) {
-    const subtitle = [c.type, c.status].filter(Boolean).join(" · ");
+    const baseMeta = meta([
+      ["Type", humanizeStatus(c.type)],
+      ["Status", humanizeStatus(c.status)],
+    ]);
 
     if (c.start_date && c.end_date) {
       events.push({
@@ -296,7 +330,8 @@ export function buildCampaignEvents(campaigns: CampaignRow[]): TimelineEvent[] {
         date: c.start_date,
         endDate: c.end_date,
         title: c.name,
-        subtitle,
+        subtitle: subtitleFromMeta(baseMeta),
+        meta: baseMeta,
         label: "Campaign window",
         status: c.status,
         href: "/campaigns",
@@ -308,7 +343,8 @@ export function buildCampaignEvents(campaigns: CampaignRow[]): TimelineEvent[] {
         kind: "milestone",
         date: c.start_date,
         title: c.name,
-        subtitle,
+        subtitle: subtitleFromMeta(baseMeta),
+        meta: baseMeta,
         label: "Campaign starts",
         status: c.status,
         href: "/campaigns",
@@ -320,7 +356,8 @@ export function buildCampaignEvents(campaigns: CampaignRow[]): TimelineEvent[] {
         kind: "milestone",
         date: c.end_date,
         title: c.name,
-        subtitle,
+        subtitle: subtitleFromMeta(baseMeta),
+        meta: baseMeta,
         label: "Campaign ends",
         status: c.status,
         urgency: urgencyForDate(c.end_date),
@@ -335,39 +372,55 @@ export function buildCampaignEvents(campaigns: CampaignRow[]): TimelineEvent[] {
 export function buildCampaignTaskEvents(tasks: TaskRow[]): TimelineEvent[] {
   return tasks
     .filter((t) => t.due_date)
-    .map((t) => ({
-      id: `task-${t.id}`,
-      category: "campaign_task" as const,
-      kind: "milestone" as const,
-      date: t.due_date!,
-      title: t.title,
-      subtitle: [t.campaign_name, t.owner, t.status].filter(Boolean).join(" · "),
-      label: "Task due",
-      status: t.status,
-      urgency:
-        t.status === "done"
-          ? ("neutral" as const)
-          : urgencyForDate(t.due_date),
-      href: "/campaigns",
-    }));
+    .map((t) => {
+      const baseMeta = meta([
+        ["Campaign", t.campaign_name],
+        ["Owner", t.owner],
+        ["Status", humanizeStatus(t.status)],
+      ]);
+      return {
+        id: `task-${t.id}`,
+        category: "campaign_task" as const,
+        kind: "milestone" as const,
+        date: t.due_date!,
+        title: t.title,
+        subtitle: subtitleFromMeta(baseMeta),
+        meta: baseMeta,
+        label: "Task due",
+        status: t.status,
+        urgency:
+          t.status === "done"
+            ? ("neutral" as const)
+            : urgencyForDate(t.due_date),
+        href: "/campaigns",
+      };
+    });
 }
 
 export function buildDealEvents(deals: DealRow[]): TimelineEvent[] {
   return deals
     .filter((d) => d.close_date)
-    .map((d) => ({
-      id: `deal-${d.id}`,
-      category: "deal" as const,
-      kind: "milestone" as const,
-      date: d.close_date!,
-      title: d.deal_name,
-      subtitle: [d.stage, d.state, d.amount != null ? formatUsd(d.amount) : null]
-        .filter(Boolean)
-        .join(" · "),
-      label: "Close date",
-      status: d.stage,
-      urgency: urgencyForDate(d.close_date),
-    }));
+    .map((d) => {
+      const accent = d.amount != null ? formatUsd(d.amount) : undefined;
+      const baseMeta = meta([
+        ["Stage", humanizeStatus(d.stage)],
+        ["State", d.state],
+        ["Amount", accent],
+      ]);
+      return {
+        id: `deal-${d.id}`,
+        category: "deal" as const,
+        kind: "milestone" as const,
+        date: d.close_date!,
+        title: d.deal_name,
+        subtitle: subtitleFromMeta(baseMeta),
+        accent,
+        meta: baseMeta,
+        label: "Close date",
+        status: d.stage,
+        urgency: urgencyForDate(d.close_date),
+      };
+    });
 }
 
 export function mergeTimelineEvents(

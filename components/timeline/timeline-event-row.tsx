@@ -20,6 +20,8 @@ export function TimelineEventRow({
   const colors = CATEGORY_COLORS[event.category];
   const dateLabel = formatEventDateRange(event);
 
+  const detailItems = event.meta?.slice(0, 2) ?? [];
+
   return (
     <button
       type="button"
@@ -32,16 +34,18 @@ export function TimelineEventRow({
       )}
     >
       <div
-        className={cn("mt-1 size-2 shrink-0 rounded-full", colors.dot)}
+        className={cn("mt-1.5 size-2 shrink-0 rounded-full", colors.dot)}
         aria-hidden
       />
-      <div className="min-w-0 flex-1 space-y-1">
+      <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[13px] font-medium leading-tight">{event.title}</p>
-            {event.subtitle ? (
-              <p className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground">
-                {event.subtitle}
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium leading-tight line-clamp-2">
+              {event.title}
+            </p>
+            {event.accent ? (
+              <p className="mt-1 text-[12px] font-medium text-foreground/80 tabular-nums">
+                {event.accent}
               </p>
             ) : null}
           </div>
@@ -56,7 +60,25 @@ export function TimelineEventRow({
             </span>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+
+        {detailItems.length > 0 ? (
+          <dl className="text-[11px] text-muted-foreground space-y-0.5">
+            {detailItems.map((m) => (
+              <div key={m.label} className="flex gap-1.5">
+                <dt className="text-muted-foreground/70 shrink-0">{m.label}:</dt>
+                <dd className="font-medium text-foreground/80 truncate">
+                  {m.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : event.subtitle ? (
+          <p className="line-clamp-2 text-[12px] text-muted-foreground">
+            {event.subtitle}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground pt-0.5">
           <span className="inline-flex items-center gap-1 tabular-nums">
             {event.kind === "range" ? (
               <CalendarRange className="size-3 shrink-0" />

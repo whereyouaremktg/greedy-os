@@ -297,6 +297,15 @@ export function TimelineHorizon({
                         const selected = selectedEventId === event.id;
                         const top = rowIndex * LANE_ROW_HEIGHT;
 
+                        const variantSubtitle = event.meta?.find(
+                          (m) => m.label === "Variant",
+                        )?.value;
+                        const subText =
+                          variantSubtitle ?? event.accent ?? event.label;
+                        const tooltip = `${event.title}${
+                          subText ? ` — ${subText}` : ""
+                        } · ${formatEventDateRange(event)}`;
+
                         if (event.kind === "range" && event.endDate) {
                           const style = rangeBarStyle(
                             event,
@@ -310,7 +319,7 @@ export function TimelineHorizon({
                               type="button"
                               onClick={() => onSelectEvent(event)}
                               className={cn(
-                                "absolute z-[2] h-10 rounded-lg border border-black/5 px-2.5 flex items-center overflow-hidden text-left shadow-sm transition-all",
+                                "absolute z-[2] flex h-10 items-center overflow-hidden rounded-lg border border-black/5 px-2.5 text-left shadow-sm transition-all",
                                 colors.bar,
                                 "hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                 selected &&
@@ -319,12 +328,18 @@ export function TimelineHorizon({
                                   "ring-2 ring-destructive/50",
                               )}
                               style={{ ...style, top }}
-                              aria-label={`${event.title}, ${formatEventDateRange(event)}`}
+                              title={tooltip}
+                              aria-label={tooltip}
                               aria-pressed={selected}
                             >
-                              <span className="truncate text-xs font-medium">
+                              <span className="min-w-0 truncate text-xs font-semibold">
                                 {event.title}
                               </span>
+                              {subText ? (
+                                <span className="ml-1.5 truncate text-[10px] font-medium opacity-75">
+                                  · {subText}
+                                </span>
+                              ) : null}
                             </button>
                           );
                         }
@@ -340,7 +355,7 @@ export function TimelineHorizon({
                             type="button"
                             onClick={() => onSelectEvent(event)}
                             className={cn(
-                              "absolute z-[2] h-10 -translate-x-1/2 rounded-lg border border-black/5 px-2.5 flex items-center overflow-hidden text-left shadow-sm transition-all",
+                              "absolute z-[2] flex h-10 -translate-x-1/2 items-center overflow-hidden rounded-lg border border-black/5 px-2.5 text-left shadow-sm transition-all",
                               colors.bar,
                               "hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                               selected &&
@@ -354,12 +369,18 @@ export function TimelineHorizon({
                               width: MILESTONE_MIN_WIDTH_PX,
                               maxWidth: "min(280px, 36%)",
                             }}
-                            aria-label={`${event.title}, ${formatEventDateRange(event)}`}
+                            title={tooltip}
+                            aria-label={tooltip}
                             aria-pressed={selected}
                           >
-                            <span className="truncate text-xs font-medium w-full">
+                            <span className="min-w-0 truncate text-xs font-semibold">
                               {event.title}
                             </span>
+                            {subText ? (
+                              <span className="ml-1.5 truncate text-[10px] font-medium opacity-75">
+                                · {subText}
+                              </span>
+                            ) : null}
                           </button>
                         );
                       })}

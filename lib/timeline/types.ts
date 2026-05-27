@@ -10,6 +10,11 @@ export type TimelineEventKind = "milestone" | "range";
 
 export type TimelineUrgency = "overdue" | "soon" | "neutral";
 
+export type TimelineEventMeta = {
+  label: string;
+  value: string;
+};
+
 export type TimelineEvent = {
   id: string;
   category: TimelineCategory;
@@ -18,8 +23,14 @@ export type TimelineEvent = {
   date: string;
   endDate?: string | null;
   title: string;
+  /** Free-form fallback when structured meta is not provided. */
   subtitle?: string;
+  /** What the date represents (e.g. "Expected arrival"). */
   label: string;
+  /** Short headline stat shown inline (e.g. "5,500 units", "$24K"). */
+  accent?: string;
+  /** Structured key/value details rendered in cards and the detail sheet. */
+  meta?: TimelineEventMeta[];
   status?: string;
   urgency?: TimelineUrgency;
   href?: string;
