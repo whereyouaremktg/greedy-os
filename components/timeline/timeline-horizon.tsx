@@ -300,11 +300,32 @@ export function TimelineHorizon({
                         const variantSubtitle = event.meta?.find(
                           (m) => m.label === "Variant",
                         )?.value;
-                        const subText =
-                          variantSubtitle ?? event.accent ?? event.label;
+                        const subText = event.accent ?? variantSubtitle;
                         const tooltip = `${event.title}${
                           subText ? ` — ${subText}` : ""
                         } · ${formatEventDateRange(event)}`;
+
+                        const barClass = cn(
+                          "absolute z-[2] flex h-10 items-center overflow-hidden rounded-lg border border-black/5 px-2.5 text-left shadow-sm transition-all gap-1",
+                          colors.bar,
+                          "hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          selected &&
+                            "ring-2 ring-brand z-[3] brightness-95",
+                          event.urgency === "overdue" &&
+                            "ring-2 ring-destructive/50",
+                        );
+
+                        const titleEl = (
+                          <span className="min-w-0 flex-1 truncate text-xs font-semibold">
+                            {event.title}
+                          </span>
+                        );
+                        const accentEl =
+                          subText && event.accent ? (
+                            <span className="shrink-0 rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums">
+                              {event.accent}
+                            </span>
+                          ) : null;
 
                         if (event.kind === "range" && event.endDate) {
                           const style = rangeBarStyle(
@@ -318,28 +339,14 @@ export function TimelineHorizon({
                               key={event.id}
                               type="button"
                               onClick={() => onSelectEvent(event)}
-                              className={cn(
-                                "absolute z-[2] flex h-10 items-center overflow-hidden rounded-lg border border-black/5 px-2.5 text-left shadow-sm transition-all",
-                                colors.bar,
-                                "hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                selected &&
-                                  "ring-2 ring-brand z-[3] brightness-95",
-                                event.urgency === "overdue" &&
-                                  "ring-2 ring-destructive/50",
-                              )}
+                              className={barClass}
                               style={{ ...style, top }}
                               title={tooltip}
                               aria-label={tooltip}
                               aria-pressed={selected}
                             >
-                              <span className="min-w-0 truncate text-xs font-semibold">
-                                {event.title}
-                              </span>
-                              {subText ? (
-                                <span className="ml-1.5 truncate text-[10px] font-medium opacity-75">
-                                  · {subText}
-                                </span>
-                              ) : null}
+                              {titleEl}
+                              {accentEl}
                             </button>
                           );
                         }
@@ -355,32 +362,21 @@ export function TimelineHorizon({
                             type="button"
                             onClick={() => onSelectEvent(event)}
                             className={cn(
-                              "absolute z-[2] flex h-10 -translate-x-1/2 items-center overflow-hidden rounded-lg border border-black/5 px-2.5 text-left shadow-sm transition-all",
-                              colors.bar,
-                              "hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                              selected &&
-                                "ring-2 ring-brand z-[3] brightness-95",
-                              event.urgency === "overdue" &&
-                                "ring-2 ring-destructive/50",
+                              barClass,
+                              "-translate-x-1/2",
                             )}
                             style={{
                               left,
                               top,
                               width: MILESTONE_MIN_WIDTH_PX,
-                              maxWidth: "min(280px, 36%)",
+                              maxWidth: "min(280px, 38%)",
                             }}
                             title={tooltip}
                             aria-label={tooltip}
                             aria-pressed={selected}
                           >
-                            <span className="min-w-0 truncate text-xs font-semibold">
-                              {event.title}
-                            </span>
-                            {subText ? (
-                              <span className="ml-1.5 truncate text-[10px] font-medium opacity-75">
-                                · {subText}
-                              </span>
-                            ) : null}
+                            {titleEl}
+                            {accentEl}
                           </button>
                         );
                       })}
