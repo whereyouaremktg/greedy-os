@@ -5,7 +5,6 @@ import {
   buildCampaignTaskEvents,
   buildManufacturingEvents,
   buildPaymentEvents,
-  buildPoLineCancelEvents,
   buildPurchaseOrderEvents,
   mergeTimelineEvents,
 } from "@/lib/timeline/build-events";
@@ -20,7 +19,6 @@ export async function fetchTimelineEvents(
   const [
     runsResult,
     posResult,
-    poLinesResult,
     paymentsResult,
     campaignsResult,
     tasksResult,
@@ -41,17 +39,6 @@ export async function fetchTimelineEvents(
          vendors!inner ( name )`,
       )
       .order("expected_date", { ascending: true, nullsFirst: false }),
-    supabase
-      .from("po_line_items")
-      .select(
-        `id, purchase_order_id, product_name, color, quantity, cancel_date,
-         purchase_orders!inner (
-           po_number,
-           vendors!inner ( name )
-         )`,
-      )
-      .not("cancel_date", "is", null)
-      .order("cancel_date", { ascending: true }),
     supabase
       .from("po_payments")
       .select(
@@ -76,7 +63,6 @@ export async function fetchTimelineEvents(
   const firstError =
     runsResult.error ??
     posResult.error ??
-    poLinesResult.error ??
     paymentsResult.error ??
     campaignsResult.error ??
     tasksResult.error;
@@ -109,24 +95,6 @@ export async function fetchTimelineEvents(
       (row.vendors as { name: string } | null)?.name ?? "Unknown vendor",
   }));
 
-  const poLines = (poLinesResult.data ?? []).map((row) => {
-    const po = row.purchase_orders as {
-      po_number: string | null;
-      vendors: { name: string } | null;
-    } | null;
-
-    return {
-      id: row.id,
-      purchase_order_id: row.purchase_order_id,
-      product_name: row.product_name,
-      color: row.color,
-      quantity: Number(row.quantity),
-      cancel_date: row.cancel_date,
-      po_number: po?.po_number ?? null,
-      vendor_name: po?.vendors?.name ?? "Unknown buyer",
-    };
-  });
-
   const payments = (paymentsResult.data ?? []).map((row) => ({
     id: row.id,
     purchase_order_id: row.purchase_order_id,
@@ -155,7 +123,6 @@ export async function fetchTimelineEvents(
   const events = mergeTimelineEvents(
     buildManufacturingEvents(runs),
     buildPurchaseOrderEvents(pos),
-    buildPoLineCancelEvents(poLines),
     buildPaymentEvents(payments),
     buildCampaignEvents(campaigns),
     buildCampaignTaskEvents(tasks),
