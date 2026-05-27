@@ -1,7 +1,19 @@
 import { Suspense } from "react";
 
-import { PoTable, type PoRow } from "@/components/purchase-orders/po-table";
+import { PoView } from "@/components/purchase-orders/po-view";
+import type { PoRow } from "@/components/purchase-orders/types";
 import { createClient } from "@/lib/supabase/server";
+
+function summarizePayments(
+  payments: Array<{ amount: number; paid: boolean }>,
+): PoRow["payments"] {
+  const unpaid = payments.filter((p) => !p.paid);
+  return {
+    unpaid_count: unpaid.length,
+    unpaid_total: unpaid.reduce((sum, p) => sum + Number(p.amount), 0),
+    all_paid: payments.length > 0 && unpaid.length === 0,
+  };
+}
 
 export default async function PurchaseOrdersPage({
   searchParams,
@@ -14,9 +26,11 @@ export default async function PurchaseOrdersPage({
   const { data, error } = await supabase
     .from("purchase_orders")
     .select(
-      `id, po_number, status, order_date, expected_date, total,
+      `id, po_number, status, order_date, expected_date, ship_date,
+       tracking_number, carrier, total, updated_at,
        vendors!inner ( name ),
-       po_line_items ( quantity )`,
+       po_line_items ( quantity ),
+       po_payments ( amount, paid )`,
     )
     .order("order_date", { ascending: false, nullsFirst: false });
 
@@ -35,7 +49,10 @@ export default async function PurchaseOrdersPage({
 
   const orders: PoRow[] = (data ?? []).map((row) => {
     const lines = row.po_line_items ?? [];
-    const totalUnits = lines.reduce((sum, line) => sum + Number(line.quantity), 0);
+    const totalUnits = lines.reduce(
+      (sum, line) => sum + Number(line.quantity),
+      0,
+    );
 
     return {
       id: row.id,
@@ -43,18 +60,23 @@ export default async function PurchaseOrdersPage({
       status: row.status,
       order_date: row.order_date,
       expected_date: row.expected_date,
+      ship_date: row.ship_date,
+      tracking_number: row.tracking_number,
+      carrier: row.carrier,
       total: row.total,
       vendor_name:
         (row.vendors as { name: string } | null)?.name ?? "Unknown buyer",
       line_item_count: lines.length,
       total_units: totalUnits,
+      updated_at: row.updated_at,
+      payments: summarizePayments(row.po_payments ?? []),
     };
   });
 
   return (
     <div className="space-y-6">
       <Suspense fallback={null}>
-        <PoTable orders={orders} initialUploadOpen={params.new === "1"} />
+        <PoView orders={orders} initialUploadOpen={params.new === "1"} />
       </Suspense>
     </div>
   );

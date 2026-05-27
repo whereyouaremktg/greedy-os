@@ -8,6 +8,8 @@ import { revalidateTimelinePaths } from "@/lib/timeline/revalidate";
 import {
   createPurchaseOrderCore,
   fetchPurchaseOrderDetail,
+  updatePoShipmentCore,
+  updatePoStatusCore,
 } from "@/lib/purchase-orders/core";
 import {
   createPurchaseOrderInputSchema,
@@ -15,6 +17,8 @@ import {
   parsedToCreateInput,
   type CreatePurchaseOrderInput,
 } from "@/lib/purchase-orders/schema";
+import type { PoStatus } from "@/lib/purchase-orders/statuses";
+import { PO_BOARD_STATUSES } from "@/lib/purchase-orders/statuses";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult<T = void> =
@@ -101,3 +105,81 @@ export async function getPurchaseOrderDetail(id: string) {
 
   return { ok: true as const, data: detail.data };
 }
+
+const poStatusSchema = z.enum([
+  "draft",
+  "sent",
+  "confirmed",
+  "in_fulfillment",
+  "shipped",
+  "partially_received",
+  "received",
+  "closed",
+  "cancelled",
+]);
+
+export async function updatePoStatus(
+  id: string,
+  status: PoStatus,
+): Promise<ActionResult<{ id: string; status: PoStatus }>> {
+  const parsed = z
+    .object({ id: z.string().uuid(), status: poStatusSchema })
+    .safeParse({ id, status });
+
+  if (!parsed.success) {
+    return { ok: false, error: flattenZod(parsed.error) };
+  }
+
+  const supabase = await createClient();
+  const result = await updatePoStatusCore(
+    supabase,
+    parsed.data.id,
+    parsed.data.status,
+  );
+
+  if (!result.ok) {
+    return { ok: false, error: result.error.message };
+  }
+
+  revalidateTimelinePaths();
+  revalidatePath("/purchase-orders");
+
+  return { ok: true, data: result.data };
+}
+
+const updatePoShipmentSchema = z.object({
+  id: z.string().uuid(),
+  ship_date: z.string().nullable().optional(),
+  tracking_number: z.string().nullable().optional(),
+  carrier: z.string().nullable().optional(),
+});
+
+export async function updatePoShipment(
+  input: z.infer<typeof updatePoShipmentSchema>,
+): Promise<
+  ActionResult<{
+    id: string;
+    ship_date: string | null;
+    tracking_number: string | null;
+    carrier: string | null;
+  }>
+> {
+  const parsed = updatePoShipmentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: flattenZod(parsed.error) };
+  }
+
+  const { id, ...shipment } = parsed.data;
+  const supabase = await createClient();
+  const result = await updatePoShipmentCore(supabase, id, shipment);
+
+  if (!result.ok) {
+    return { ok: false, error: result.error.message };
+  }
+
+  revalidatePath("/purchase-orders");
+
+  return { ok: true, data: result.data };
+}
+
+export { PO_BOARD_STATUSES };

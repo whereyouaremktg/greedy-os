@@ -497,6 +497,7 @@ export type Database = {
       }
       purchase_orders: {
         Row: {
+          carrier: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -505,13 +506,16 @@ export type Database = {
           notes: string | null
           order_date: string | null
           po_number: string | null
+          ship_date: string | null
           status: Database["public"]["Enums"]["po_status"]
           subtotal: number
           total: number
+          tracking_number: string | null
           updated_at: string
           vendor_id: string
         }
         Insert: {
+          carrier?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -520,13 +524,16 @@ export type Database = {
           notes?: string | null
           order_date?: string | null
           po_number?: string | null
+          ship_date?: string | null
           status?: Database["public"]["Enums"]["po_status"]
           subtotal?: number
           total?: number
+          tracking_number?: string | null
           updated_at?: string
           vendor_id: string
         }
         Update: {
+          carrier?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -535,9 +542,11 @@ export type Database = {
           notes?: string | null
           order_date?: string | null
           po_number?: string | null
+          ship_date?: string | null
           status?: Database["public"]["Enums"]["po_status"]
           subtotal?: number
           total?: number
+          tracking_number?: string | null
           updated_at?: string
           vendor_id?: string
         }
@@ -749,6 +758,8 @@ export type Database = {
         | "draft"
         | "sent"
         | "confirmed"
+        | "in_fulfillment"
+        | "shipped"
         | "partially_received"
         | "received"
         | "closed"
@@ -905,6 +916,8 @@ export const Constants = {
         "draft",
         "sent",
         "confirmed",
+        "in_fulfillment",
+        "shipped",
         "partially_received",
         "received",
         "closed",

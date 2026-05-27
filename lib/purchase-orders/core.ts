@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { findOrCreateVendorByName as findOrCreateVendorByNameLookup } from "@/lib/vendors/lookup";
 import type { CreatePurchaseOrderInput } from "@/lib/purchase-orders/schema";
 import { latestCancelDate } from "@/lib/purchase-orders/schema";
+import type { PoStatus } from "@/lib/purchase-orders/statuses";
 import type { Database } from "@/types/db";
 
 type Client = SupabaseClient<Database>;
@@ -159,6 +160,86 @@ export async function createPurchaseOrderCore(
   };
 }
 
+export async function updatePoStatusCore(
+  supabase: Client,
+  id: string,
+  status: PoStatus,
+): Promise<PoCoreResult<{ id: string; status: PoStatus }>> {
+  const { data, error } = await supabase
+    .from("purchase_orders")
+    .update({ status })
+    .eq("id", id)
+    .select("id, status")
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, error: dbError(error, "Failed to update PO status") };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      error: { code: "NOT_FOUND", message: "Purchase order not found" },
+    };
+  }
+
+  return { ok: true, data: { id: data.id, status: data.status } };
+}
+
+export type UpdatePoShipmentInput = {
+  ship_date?: string | null;
+  tracking_number?: string | null;
+  carrier?: string | null;
+};
+
+export async function updatePoShipmentCore(
+  supabase: Client,
+  id: string,
+  input: UpdatePoShipmentInput,
+): Promise<
+  PoCoreResult<{
+    id: string;
+    ship_date: string | null;
+    tracking_number: string | null;
+    carrier: string | null;
+  }>
+> {
+  const patch: Database["public"]["Tables"]["purchase_orders"]["Update"] = {};
+
+  if ("ship_date" in input) patch.ship_date = input.ship_date ?? null;
+  if ("tracking_number" in input) {
+    patch.tracking_number = input.tracking_number?.trim() || null;
+  }
+  if ("carrier" in input) patch.carrier = input.carrier?.trim() || null;
+
+  const { data, error } = await supabase
+    .from("purchase_orders")
+    .update(patch)
+    .eq("id", id)
+    .select("id, ship_date, tracking_number, carrier")
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, error: dbError(error, "Failed to update shipment") };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      error: { code: "NOT_FOUND", message: "Purchase order not found" },
+    };
+  }
+
+  return { ok: true, data };
+}
+
+export type PoPaymentRow = {
+  id: string;
+  label: string;
+  amount: number;
+  due_date: string | null;
+  paid: boolean;
+  paid_date: string | null;
+};
+
 export async function fetchPurchaseOrderDetail(
   supabase: Client,
   id: string,
@@ -172,7 +253,11 @@ export async function fetchPurchaseOrderDetail(
     subtotal: number;
     total: number;
     notes: string | null;
+    ship_date: string | null;
+    tracking_number: string | null;
+    carrier: string | null;
     vendor_name: string;
+    payments: PoPaymentRow[];
     line_items: Array<{
       id: string;
       product_name: string;
@@ -191,7 +276,9 @@ export async function fetchPurchaseOrderDetail(
     .from("purchase_orders")
     .select(
       `id, po_number, status, order_date, expected_date, subtotal, total, notes,
+       ship_date, tracking_number, carrier,
        vendors!inner ( name ),
+       po_payments ( id, label, amount, due_date, paid, paid_date ),
        po_line_items (
          id, product_name, sku, style_number, color, quantity, unit_cost,
          line_total, retail_price, cancel_date
@@ -214,6 +301,12 @@ export async function fetchPurchaseOrderDetail(
     a.product_name.localeCompare(b.product_name),
   );
 
+  const payments = (data.po_payments ?? []).sort((a, b) => {
+    const aDue = a.due_date ?? "9999-12-31";
+    const bDue = b.due_date ?? "9999-12-31";
+    return aDue.localeCompare(bDue);
+  });
+
   return {
     ok: true,
     data: {
@@ -225,7 +318,18 @@ export async function fetchPurchaseOrderDetail(
       subtotal: data.subtotal,
       total: data.total,
       notes: data.notes,
+      ship_date: data.ship_date,
+      tracking_number: data.tracking_number,
+      carrier: data.carrier,
       vendor_name: (data.vendors as { name: string }).name,
+      payments: payments.map((p) => ({
+        id: p.id,
+        label: p.label,
+        amount: p.amount,
+        due_date: p.due_date,
+        paid: p.paid,
+        paid_date: p.paid_date,
+      })),
       line_items: lines,
     },
   };

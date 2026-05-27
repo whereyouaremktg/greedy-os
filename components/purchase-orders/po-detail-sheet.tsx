@@ -1,6 +1,8 @@
 "use client";
 
+import * as React from "react";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import {
   Sheet,
@@ -17,7 +19,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatUsd } from "@/lib/format";
+import { updatePoShipment } from "@/lib/actions/purchase-orders";
+import {
+  formatPoStatusLabel,
+  type PoStatus,
+} from "@/lib/purchase-orders/statuses";
 
 export type PoDetail = {
   id: string;
@@ -25,10 +35,21 @@ export type PoDetail = {
   status: string;
   order_date: string | null;
   expected_date: string | null;
+  ship_date: string | null;
+  tracking_number: string | null;
+  carrier: string | null;
   subtotal: number;
   total: number;
   notes: string | null;
   vendor_name: string;
+  payments: Array<{
+    id: string;
+    label: string;
+    amount: number;
+    due_date: string | null;
+    paid: boolean;
+    paid_date: string | null;
+  }>;
   line_items: Array<{
     id: string;
     product_name: string;
@@ -49,6 +70,7 @@ type Props = {
   error: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
 };
 
 function formatDate(date: string | null): string {
@@ -60,12 +82,93 @@ function formatDate(date: string | null): string {
   });
 }
 
+function ShipmentForm({
+  detail,
+  onSaved,
+}: {
+  detail: PoDetail;
+  onSaved?: () => void;
+}) {
+  const [shipDate, setShipDate] = React.useState(detail.ship_date ?? "");
+  const [carrier, setCarrier] = React.useState(detail.carrier ?? "");
+  const [tracking, setTracking] = React.useState(detail.tracking_number ?? "");
+  const [pending, startTransition] = React.useTransition();
+
+  React.useEffect(() => {
+    setShipDate(detail.ship_date ?? "");
+    setCarrier(detail.carrier ?? "");
+    setTracking(detail.tracking_number ?? "");
+  }, [detail]);
+
+  function handleSave() {
+    startTransition(async () => {
+      const result = await updatePoShipment({
+        id: detail.id,
+        ship_date: shipDate.trim() || null,
+        carrier: carrier.trim() || null,
+        tracking_number: tracking.trim() || null,
+      });
+
+      if (result.ok) {
+        toast.success("Shipment updated");
+        onSaved?.();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border p-4">
+      <div>
+        <h3 className="text-sm font-medium">Shipment</h3>
+        <p className="text-xs text-muted-foreground">
+          Carrier, tracking, and ship date for this PO.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="po-carrier">Carrier</Label>
+          <Input
+            id="po-carrier"
+            value={carrier}
+            onChange={(e) => setCarrier(e.target.value)}
+            placeholder="UPS, FedEx…"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="po-ship-date">Ship date</Label>
+          <Input
+            id="po-ship-date"
+            type="date"
+            value={shipDate}
+            onChange={(e) => setShipDate(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="po-tracking">Tracking number</Label>
+          <Input
+            id="po-tracking"
+            value={tracking}
+            onChange={(e) => setTracking(e.target.value)}
+            placeholder="1Z999…"
+          />
+        </div>
+      </div>
+      <Button size="sm" onClick={handleSave} disabled={pending}>
+        {pending ? "Saving…" : "Save shipment"}
+      </Button>
+    </div>
+  );
+}
+
 export function PoDetailSheet({
   detail,
   loading,
   error,
   open,
   onOpenChange,
+  onSaved,
 }: Props) {
   const totalUnits =
     detail?.line_items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
@@ -93,7 +196,7 @@ export function PoDetailSheet({
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               <div>
                 <dt className="text-muted-foreground">Status</dt>
-                <dd className="capitalize">{detail.status.replace(/_/g, " ")}</dd>
+                <dd>{formatPoStatusLabel(detail.status as PoStatus)}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Order date</dt>
@@ -120,6 +223,50 @@ export function PoDetailSheet({
                 <dd className="num">{detail.line_items.length}</dd>
               </div>
             </dl>
+
+            <ShipmentForm detail={detail} onSaved={onSaved} />
+
+            {detail.payments.length > 0 ? (
+              <div className="rounded-md border">
+                <div className="border-b px-4 py-3">
+                  <h3 className="text-sm font-medium">Payments</h3>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Label</TableHead>
+                      <TableHead>Due</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detail.payments.map((payment) => (
+                      <TableRow key={payment.id}>
+                        <TableCell className="capitalize">
+                          {payment.label.replace(/_/g, " ")}
+                        </TableCell>
+                        <TableCell>{formatDate(payment.due_date)}</TableCell>
+                        <TableCell className="text-right num">
+                          {formatUsd(payment.amount, 2)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {payment.paid ? (
+                            <span className="text-emerald-600 dark:text-emerald-400">
+                              Paid
+                            </span>
+                          ) : (
+                            <span className="text-warning-foreground">
+                              Due
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : null}
 
             {detail.notes ? (
               <div className="rounded-md border bg-muted/30 p-3 text-sm whitespace-pre-wrap">
