@@ -109,6 +109,21 @@ export function analystAnswerBlocks(answer: string): Block[] {
   return blocks(sectionBlock(answer));
 }
 
+export function analystAnswerWithActionsBlocks(
+  answer: string,
+  actions: Array<{ id: string; label: string }>,
+): Block[] {
+  const sections = [sectionBlock(answer)];
+  if (actions.length > 0) {
+    const lines = actions.map(
+      (a) =>
+        `• ${a.label} — <${glowUrl(`/manufacturing#${a.id}`)}|Open in Glow>`,
+    );
+    sections.push(sectionBlock(`*Actions taken*\n${lines.join("\n")}`));
+  }
+  return blocks(...sections);
+}
+
 export function errorBlocks(): Block[] {
   return blocks(
     sectionBlock("I hit an issue — Paul, check logs."),

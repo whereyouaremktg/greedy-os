@@ -8,12 +8,18 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { enrichNumbers } from "@/components/chat/number-inline";
 import { StreamingDots } from "@/components/chat/streaming-dots";
+import { renderToolPart } from "@/components/chat/tool-chip";
 
-const SUGGESTED_PROMPTS = [
+const ANALYST_PROMPTS = [
   "How is our cash?",
   "Overdue POs?",
   "Top wholesale state?",
   "DTC revenue MoM",
+] as const;
+
+const ACTION_PROMPTS = [
+  "Create a run for Alpine Apothecary, 500 units Daily Cleanser, ETA 2026-06-05",
+  "Move the Brightening Serum run to in_transit",
 ] as const;
 
 export function ChatPanel() {
@@ -64,21 +70,45 @@ export function ChatPanel() {
             <div className="space-y-3 py-2">
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Ask about cash, AR, revenue, pipeline, or ops data pulled from
-                the cache.
+                the cache. You can also create or update manufacturing runs.
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {SUGGESTED_PROMPTS.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    onClick={() => send(prompt)}
-                    disabled={isStreaming}
-                    className="rounded-full border bg-background px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-brand/40 hover:text-foreground disabled:opacity-50"
-                    suppressHydrationWarning
-                  >
-                    {prompt}
-                  </button>
-                ))}
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Analyze
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ANALYST_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => send(prompt)}
+                      disabled={isStreaming}
+                      className="rounded-full border bg-background px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-brand/40 hover:text-foreground disabled:opacity-50"
+                      suppressHydrationWarning
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Actions
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {ACTION_PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => send(prompt)}
+                      disabled={isStreaming}
+                      className="rounded-full border border-dashed border-brand/35 bg-brand/5 px-2.5 py-1 text-[11px] text-foreground/80 transition-colors hover:border-brand/50 hover:bg-brand/10 disabled:opacity-50"
+                      suppressHydrationWarning
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ) : null}
@@ -96,15 +126,21 @@ export function ChatPanel() {
               <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
                 {m.role === "user" ? "You" : "Analyst"}
               </div>
-              {m.parts.map((part, i) =>
-                part.type === "text" ? (
-                  <p key={i} className="whitespace-pre-wrap">
-                    {m.role === "assistant"
-                      ? enrichNumbers(part.text)
-                      : part.text}
-                  </p>
-                ) : null,
-              )}
+              {m.parts.map((part, i) => {
+                if (part.type === "text") {
+                  return (
+                    <p key={i} className="whitespace-pre-wrap">
+                      {m.role === "assistant"
+                        ? enrichNumbers(part.text)
+                        : part.text}
+                    </p>
+                  );
+                }
+                if (m.role === "assistant") {
+                  return renderToolPart(part, i);
+                }
+                return null;
+              })}
             </div>
           ))}
 

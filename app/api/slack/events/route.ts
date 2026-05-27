@@ -1,14 +1,19 @@
-import { generateText } from "ai";
+import { generateText, stepCountIs } from "ai";
 import { waitUntil } from "@vercel/functions";
 import { buildGlowContext } from "@/lib/ai/context";
 import { GLOW_MODEL } from "@/lib/ai/model";
 import { GLOW_SYSTEM_PROMPT } from "@/lib/ai/prompt";
+import { extractWriteActions } from "@/lib/ai/slack-actions";
+import { makeGlowTools } from "@/lib/ai/tools";
 import { getSlackBotUserId, getSlackClient } from "@/lib/slack/client";
 import {
   resolveGlowUser,
   UNAUTHORIZED_SLACK_MESSAGE,
 } from "@/lib/slack/identity";
-import { analystAnswerBlocks, errorBlocks } from "@/lib/slack/messages";
+import {
+  analystAnswerWithActionsBlocks,
+  errorBlocks,
+} from "@/lib/slack/messages";
 import { verifySlackSignature } from "@/lib/slack/verify";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -83,17 +88,32 @@ async function handleAnalystQuestion(input: {
   try {
     const supabase = createServiceClient();
     const context = await buildGlowContext(supabase);
-    const { text } = await generateText({
+    const tools = makeGlowTools({
+      supabase,
+      actorUserId: glowUser.id,
+      source: "slack",
+    });
+
+    const result = await generateText({
       model: GLOW_MODEL,
       system: `${GLOW_SYSTEM_PROMPT}\n\nDATA:\n${JSON.stringify(context)}`,
       prompt: input.question,
+      tools,
+      stopWhen: stepCountIs(5),
     });
+
+    const actions = extractWriteActions(result);
+    const text =
+      result.text.trim() ||
+      (actions.length > 0
+        ? actions.map((a) => a.label).join("\n")
+        : "Done.");
 
     await slack.chat.postMessage({
       channel: input.channel,
       thread_ts: input.threadTs,
       text,
-      blocks: analystAnswerBlocks(text),
+      blocks: analystAnswerWithActionsBlocks(text, actions),
     });
   } catch (err) {
     console.error("[slack/events] analyst error", err);

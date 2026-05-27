@@ -234,6 +234,57 @@ export async function updateRunCore(
   return { ok: true, data: { id: data.id } };
 }
 
+export async function appendRunNotesCore(
+  supabase: Client,
+  _actorUserId: string | null,
+  id: string,
+  notesAppend: string,
+): Promise<CoreResult<{ id: string }>> {
+  const trimmed = notesAppend.trim();
+  if (!trimmed) {
+    return { ok: true, data: { id } };
+  }
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("manufacturing_runs")
+    .select("id, notes")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError) {
+    return {
+      ok: false,
+      error: dbError(fetchError, "Failed to load manufacturing run"),
+    };
+  }
+  if (!existing) {
+    return {
+      ok: false,
+      error: { code: "NOT_FOUND", message: "Manufacturing run not found" },
+    };
+  }
+
+  const merged = existing.notes?.trim()
+    ? `${existing.notes.trim()}\n${trimmed}`
+    : trimmed;
+
+  const { data, error } = await supabase
+    .from("manufacturing_runs")
+    .update({ notes: merged })
+    .eq("id", id)
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    return {
+      ok: false,
+      error: dbError(error, "Failed to append run notes"),
+    };
+  }
+
+  return { ok: true, data: { id: data.id } };
+}
+
 export async function deleteRunCore(
   supabase: Client,
   _actorUserId: string | null,
