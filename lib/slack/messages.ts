@@ -124,10 +124,10 @@ export function analystAnswerWithActionsBlocks(
   return blocks(...sections);
 }
 
-export function errorBlocks(): Block[] {
-  return blocks(
-    sectionBlock("I hit an issue — Paul, check logs."),
-  );
+export function errorBlocks(
+  message = "I hit an issue — Paul, check logs.",
+): Block[] {
+  return blocks(sectionBlock(message));
 }
 
 export function identityNotLinkedBlocks(

@@ -1,6 +1,7 @@
 import { generateText, stepCountIs } from "ai";
 import { waitUntil } from "@vercel/functions";
 import { buildGlowContext } from "@/lib/ai/context";
+import { analystErrorSlackText } from "@/lib/ai/analyst-errors";
 import { GLOW_MODEL } from "@/lib/ai/model";
 import { GLOW_SYSTEM_PROMPT } from "@/lib/ai/prompt";
 import { extractWriteActions } from "@/lib/ai/slack-actions";
@@ -84,10 +85,11 @@ async function handleSlashCommand(input: {
     });
   } catch (err) {
     console.error("[slack/commands] analyst error", err);
+    const text = analystErrorSlackText(err);
     await respondOnResponseUrl(input.responseUrl, {
       response_type: "ephemeral",
-      text: "I hit an issue — Paul, check logs.",
-      blocks: errorBlocks(),
+      text,
+      blocks: errorBlocks(text),
     });
   }
 }
