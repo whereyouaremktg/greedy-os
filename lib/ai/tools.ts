@@ -27,6 +27,7 @@ import { createPurchaseOrderInputSchema } from "@/lib/purchase-orders/schema";
 import { findOrCreateVendorByName } from "@/lib/vendors/lookup";
 import { createVendorCore, createVendorInput } from "@/lib/vendors/core";
 import type { ManufacturingStage } from "@/lib/manufacturing/stages";
+import { revalidateTimelinePaths } from "@/lib/timeline/revalidate";
 import type { Database } from "@/types/db";
 
 type Client = SupabaseClient<Database>;
@@ -400,6 +401,7 @@ export function makeGlowTools(ctx: GlowToolCtx) {
           });
 
           if (!created.ok) return created;
+          revalidateTimelinePaths();
           return fetchRunSummary(supabase, created.data.id);
         }),
     }),
@@ -432,6 +434,7 @@ export function makeGlowTools(ctx: GlowToolCtx) {
             if (!notes.ok) return notes;
           }
 
+          revalidateTimelinePaths();
           return fetchRunSummary(supabase, run_id);
         }),
     }),
@@ -472,6 +475,7 @@ export function makeGlowTools(ctx: GlowToolCtx) {
             if (!notes.ok) return notes;
           }
 
+          revalidateTimelinePaths();
           return fetchRunSummary(supabase, input.run_id);
         }),
     }),
@@ -543,6 +547,7 @@ export function makeGlowTools(ctx: GlowToolCtx) {
             input,
           );
           if (!created.ok) return created;
+          revalidateTimelinePaths();
           return { ok: true, data: created.data };
         }),
     }),

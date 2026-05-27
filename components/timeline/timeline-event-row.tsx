@@ -1,31 +1,34 @@
 "use client";
 
-import Link from "next/link";
-import { AlertCircle, CalendarRange } from "lucide-react";
+import { AlertCircle, CalendarRange, ChevronRight } from "lucide-react";
 
-import { CATEGORY_COLORS } from "@/lib/timeline/utils";
+import { CATEGORY_COLORS, formatEventDateRange } from "@/lib/timeline/utils";
 import { CATEGORY_LABELS, type TimelineEvent } from "@/lib/timeline/types";
 import { cn } from "@/lib/utils";
-import { formatShortDate } from "@/lib/timeline/utils";
 
 export function TimelineEventRow({
   event,
+  onSelect,
+  selected = false,
   showCategory = true,
 }: {
   event: TimelineEvent;
+  onSelect?: (event: TimelineEvent) => void;
+  selected?: boolean;
   showCategory?: boolean;
 }) {
   const colors = CATEGORY_COLORS[event.category];
-  const dateLabel =
-    event.kind === "range" && event.endDate
-      ? `${formatShortDate(event.date)} → ${formatShortDate(event.endDate)}`
-      : formatShortDate(event.date);
+  const dateLabel = formatEventDateRange(event);
 
-  const inner = (
-    <div
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect?.(event)}
       className={cn(
-        "flex gap-3 rounded-lg border bg-card p-3 transition-colors",
-        event.href && "hover:border-brand/40",
+        "flex w-full gap-3 rounded-lg border bg-card p-3 text-left transition-colors",
+        "hover:border-brand/40 hover:bg-muted/30",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        selected && "border-brand/50 bg-brand/5 ring-1 ring-brand/20",
       )}
     >
       <div
@@ -37,18 +40,18 @@ export function TimelineEventRow({
           <div className="min-w-0">
             <p className="text-[13px] font-medium leading-tight">{event.title}</p>
             {event.subtitle ? (
-              <p className="mt-0.5 text-[12px] text-muted-foreground truncate">
+              <p className="mt-0.5 line-clamp-2 text-[12px] text-muted-foreground">
                 {event.subtitle}
               </p>
             ) : null}
           </div>
           {event.urgency === "overdue" ? (
-            <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
               <AlertCircle className="size-3" />
               Overdue
             </span>
           ) : event.urgency === "soon" ? (
-            <span className="inline-flex rounded-md bg-warning/15 px-1.5 py-0.5 text-[11px] font-medium text-warning-foreground">
+            <span className="inline-flex shrink-0 rounded-md bg-warning/15 px-1.5 py-0.5 text-[11px] font-medium text-warning-foreground">
               Soon
             </span>
           ) : null}
@@ -72,16 +75,10 @@ export function TimelineEventRow({
           ) : null}
         </div>
       </div>
-    </div>
+      <ChevronRight
+        className="size-4 shrink-0 self-center text-muted-foreground/60"
+        aria-hidden
+      />
+    </button>
   );
-
-  if (event.href) {
-    return (
-      <Link href={event.href} className="block outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg">
-        {inner}
-      </Link>
-    );
-  }
-
-  return inner;
 }

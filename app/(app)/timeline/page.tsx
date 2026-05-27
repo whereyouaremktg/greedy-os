@@ -2,6 +2,8 @@ import { TimelineView } from "@/components/timeline/timeline-view";
 import { fetchTimelineEvents } from "@/lib/timeline/fetch";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export default async function TimelinePage() {
   const supabase = await createClient();
   const { events, error } = await fetchTimelineEvents(supabase);

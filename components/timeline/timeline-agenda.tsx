@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import {
   addDays,
   differenceInCalendarDays,
@@ -30,9 +29,13 @@ function groupByDay(events: TimelineEvent[]): Map<string, TimelineEvent[]> {
 export function TimelineAgenda({
   events,
   daysAhead = 120,
+  selectedEventId,
+  onSelectEvent,
 }: {
   events: TimelineEvent[];
   daysAhead?: number;
+  selectedEventId?: string | null;
+  onSelectEvent: (event: TimelineEvent) => void;
 }) {
   const today = startOfDay(parseISO(todayIso()));
   const horizonEnd = addDays(today, daysAhead);
@@ -63,7 +66,7 @@ export function TimelineAgenda({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-2xl">
       {overdue.length > 0 ? (
         <section className="space-y-2">
           <h3 className="text-[13px] font-semibold text-destructive">
@@ -71,7 +74,12 @@ export function TimelineAgenda({
           </h3>
           <div className="space-y-2">
             {overdue.map((e) => (
-              <TimelineEventRow key={e.id} event={e} />
+              <TimelineEventRow
+                key={e.id}
+                event={e}
+                onSelect={onSelectEvent}
+                selected={selectedEventId === e.id}
+              />
             ))}
           </div>
         </section>
@@ -99,7 +107,7 @@ export function TimelineAgenda({
 
             return (
               <div key={iso} className="space-y-2">
-                <div className="flex items-baseline gap-2 sticky top-0 bg-background/95 py-1 backdrop-blur z-[1]">
+                <div className="flex items-baseline gap-2">
                   <h4 className="text-[13px] font-medium">{formatDayKey(iso)}</h4>
                   {relative ? (
                     <span className="text-[11px] text-muted-foreground">
@@ -113,7 +121,12 @@ export function TimelineAgenda({
                 </div>
                 <div className="space-y-2">
                   {dayEvents.map((e) => (
-                    <TimelineEventRow key={e.id} event={e} />
+                    <TimelineEventRow
+                      key={e.id}
+                      event={e}
+                      onSelect={onSelectEvent}
+                      selected={selectedEventId === e.id}
+                    />
                   ))}
                 </div>
               </div>

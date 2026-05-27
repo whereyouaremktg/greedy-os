@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { revalidateTimelinePaths } from "@/lib/timeline/revalidate";
+
 import {
   createPurchaseOrderCore,
   fetchPurchaseOrderDetail,
@@ -55,8 +57,7 @@ export async function createPurchaseOrder(
     return { ok: false, error: created.error.message };
   }
 
-  revalidatePath("/purchase-orders");
-  revalidatePath("/timeline");
+  revalidateTimelinePaths();
   revalidatePath("/vendors");
 
   return { ok: true, data: created.data };

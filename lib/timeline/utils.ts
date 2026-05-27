@@ -63,6 +63,21 @@ export function formatDayKey(iso: string): string {
   return format(parseISO(iso), "EEE, MMM d");
 }
 
+export function formatEventDateRange(event: {
+  date: string;
+  endDate?: string | null;
+  kind: "milestone" | "range";
+}): string {
+  if (event.kind === "range" && event.endDate) {
+    return `${formatShortDate(event.date)} → ${formatShortDate(event.endDate)}`;
+  }
+  return formatShortDate(event.date);
+}
+
+export function sortEventsByDate(events: TimelineEvent[]): TimelineEvent[] {
+  return [...events].sort((a, b) => a.date.localeCompare(b.date));
+}
+
 export const CATEGORY_COLORS: Record<
   TimelineCategory,
   { bar: string; dot: string; text: string }

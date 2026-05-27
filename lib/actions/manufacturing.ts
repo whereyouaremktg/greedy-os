@@ -1,7 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
+
+import { revalidateTimelinePaths } from "@/lib/timeline/revalidate";
 
 import {
   createRunCore,
@@ -110,7 +111,7 @@ export async function createRun(
     auth.user!.id,
     await toCoreInput(auth.supabase, parsed.data),
   );
-  if (result.ok) revalidatePath("/manufacturing");
+  if (result.ok) revalidateTimelinePaths();
   return result;
 }
 
@@ -137,7 +138,7 @@ export async function updateRun(
     idResult.data,
     await toCoreInput(auth.supabase, parsed.data),
   );
-  if (result.ok) revalidatePath("/manufacturing");
+  if (result.ok) revalidateTimelinePaths();
   return result;
 }
 
@@ -166,7 +167,7 @@ export async function updateRunStage(
     idResult.data,
     stageResult.data,
   );
-  if (result.ok) revalidatePath("/manufacturing");
+  if (result.ok) revalidateTimelinePaths();
   return result;
 }
 
@@ -203,8 +204,7 @@ export async function createRunFromParsed(
   );
   if (!result.ok) return result;
 
-  revalidatePath("/manufacturing");
-  revalidatePath("/timeline");
+  revalidateTimelinePaths();
 
   return {
     ok: true,
@@ -234,6 +234,6 @@ export async function deleteRun(
     auth.user!.id,
     idResult.data,
   );
-  if (result.ok) revalidatePath("/manufacturing");
+  if (result.ok) revalidateTimelinePaths();
   return result;
 }
