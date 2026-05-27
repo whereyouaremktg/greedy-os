@@ -73,6 +73,15 @@ export function ManufacturingView({
     }
   }
 
+  function closeCreateSheet() {
+    handleCreateOpenChange(false);
+  }
+
+  function handleMutationSuccess(closeSheet: () => void) {
+    closeSheet();
+    router.refresh();
+  }
+
   function handleDelete() {
     if (!deleting) return;
     const target = deleting;
@@ -82,6 +91,7 @@ export function ManufacturingView({
         toast.success(`Deleted ${target.product_name}`);
         setDeleting(null);
         setEditing(null);
+        router.refresh();
       } else {
         toast.error(result.error.message);
       }
@@ -166,8 +176,8 @@ export function ManufacturingView({
             <RunForm
               vendors={vendors}
               purchaseOrders={purchaseOrders}
-              onSuccess={() => setCreateOpen(false)}
-              onCancel={() => setCreateOpen(false)}
+              onSuccess={() => handleMutationSuccess(closeCreateSheet)}
+              onCancel={closeCreateSheet}
             />
           </div>
         </SheetContent>
@@ -190,9 +200,11 @@ export function ManufacturingView({
                 run={editing}
                 vendors={vendors}
                 purchaseOrders={purchaseOrders}
-                onSuccess={() => setEditing(null)}
+                onSuccess={() =>
+                  handleMutationSuccess(() => setEditing(null))
+                }
                 onCancel={() => setEditing(null)}
-                onDeleted={() => setEditing(null)}
+                onDeleted={() => handleMutationSuccess(() => setEditing(null))}
               />
             ) : null}
           </div>
