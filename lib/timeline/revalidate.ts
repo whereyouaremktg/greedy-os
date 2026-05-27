@@ -6,4 +6,5 @@ export function revalidateTimelinePaths() {
   revalidatePath("/dashboard");
   revalidatePath("/manufacturing");
   revalidatePath("/purchase-orders");
+  revalidatePath("/campaigns");
 }
