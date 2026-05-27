@@ -175,7 +175,7 @@ export function ManufacturingView({
             <SheetTitle>New run</SheetTitle>
             <SheetDescription>Log a production run.</SheetDescription>
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
             <RunForm
               vendors={vendors}
               purchaseOrders={purchaseOrders}

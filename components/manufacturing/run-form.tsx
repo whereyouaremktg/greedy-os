@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useForm, type FieldErrors, type Resolver } from "react-hook-form";
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { useForm, type FieldErrors } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,9 +10,11 @@ import {
   createRun,
   updateRun,
   deleteRun,
-  runSchema,
-  type RunFormValues,
 } from "@/lib/actions/manufacturing";
+import {
+  runFormSchema,
+  type RunFormValues,
+} from "@/lib/manufacturing/run-schema";
 import {
   MANUFACTURING_STAGES,
   formatStageLabel,
@@ -63,9 +65,7 @@ function toFormValues(run?: ManufacturingRunRow): RunFormValues {
   };
 }
 
-const resolver = standardSchemaResolver(
-  runSchema,
-) as unknown as Resolver<RunFormValues>;
+const formId = "manufacturing-run-form";
 
 export function RunForm({
   run,
@@ -91,16 +91,26 @@ export function RunForm({
   const hasPurchaseOrders = purchaseOrders.length > 0;
 
   const form = useForm<RunFormValues>({
-    resolver,
+    resolver: zodResolver(runFormSchema),
     defaultValues: toFormValues(run),
   });
 
+  React.useEffect(() => {
+    if (isEdit || vendors.length !== 1) return;
+    if (!form.getValues("vendor_id")) {
+      form.setValue("vendor_id", vendors[0]!.id, { shouldValidate: true });
+    }
+  }, [form, isEdit, vendors]);
+
   function showValidationToast(errors: FieldErrors<RunFormValues>) {
-    const first = Object.values(errors).find((e) => e?.message);
+    const messages = Object.entries(errors)
+      .map(([key, err]) => {
+        const msg = err?.message;
+        return msg ? `${key}: ${String(msg)}` : null;
+      })
+      .filter(Boolean);
     toast.error(
-      first?.message
-        ? String(first.message)
-        : "Fix the highlighted fields to continue.",
+      messages[0] ?? "Fix the highlighted fields to continue.",
     );
     const firstKey = Object.keys(errors)[0] as keyof RunFormValues | undefined;
     if (firstKey) form.setFocus(firstKey);
@@ -127,6 +137,8 @@ export function RunForm({
     }
   }
 
+  const submitRun = form.handleSubmit(onSubmit, showValidationToast);
+
   async function handleDelete() {
     if (!run) return;
     setDeletePending(true);
@@ -152,10 +164,27 @@ export function RunForm({
     <>
       <Form {...form}>
         <form
-          onSubmit={form.handleSubmit(onSubmit, showValidationToast)}
+          id={formId}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submitRun();
+          }}
           className="flex flex-col gap-4"
           aria-busy={submitting}
+          noValidate
         >
+          {Object.keys(form.formState.errors).length > 0 ? (
+            <div
+              role="alert"
+              className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+            >
+              {Object.entries(form.formState.errors).map(([key, err]) =>
+                err?.message ? (
+                  <p key={key}>{String(err.message)}</p>
+                ) : null,
+              )}
+            </div>
+          ) : null}
           <FormField
             control={form.control}
             name="vendor_id"
@@ -278,12 +307,18 @@ export function RunForm({
                     step={1}
                     className="num"
                     {...field}
-                    value={Number(field.value ?? 0)}
-                    onChange={(e) =>
-                      field.onChange(
-                        e.target.value === "" ? 0 : e.target.valueAsNumber,
-                      )
-                    }
+                    value={Number.isFinite(Number(field.value))
+                      ? Number(field.value)
+                      : 0}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === "") {
+                        field.onChange(0);
+                        return;
+                      }
+                      const n = e.target.valueAsNumber;
+                      field.onChange(Number.isFinite(n) ? n : 0);
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
@@ -412,7 +447,11 @@ export function RunForm({
                     Cancel
                   </Button>
                 ) : null}
-                <Button type="submit" disabled={submitting}>
+                <Button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => void submitRun()}
+                >
                   {submitting ? (
                     <>
                       <Loader2 className="animate-spin" />

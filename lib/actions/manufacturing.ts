@@ -11,73 +11,17 @@ import {
   type CoreResult,
   type CreateRunInput,
 } from "@/lib/manufacturing/core";
+import {
+  MANUFACTURING_STAGE_VALUES,
+  runSchema,
+  type RunFormValues,
+} from "@/lib/manufacturing/run-schema";
 import type { ManufacturingStage } from "@/lib/manufacturing/stages";
 import { createClient } from "@/lib/supabase/server";
 
-const stageSchema = z.enum([
-  "ordered",
-  "in_production",
-  "complete",
-  "in_transit",
-  "received",
-]);
+export type { RunFormValues } from "@/lib/manufacturing/run-schema";
 
-const optionalText = z
-  .string()
-  .max(2000)
-  .transform((v) => {
-    const trimmed = v.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  });
-
-const optionalDate = z
-  .string()
-  .transform((v) => v.trim())
-  .pipe(
-    z.union([
-      z.literal(""),
-      z
-        .string()
-        .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date")
-        .transform((v) => v),
-    ]),
-  )
-  .transform((v) => (v.length > 0 ? v : null));
-
-const optionalUuid = z
-  .string()
-  .transform((v) => v.trim())
-  .pipe(
-    z.union([z.literal(""), z.string().uuid()]).transform((v) =>
-      v.length > 0 ? v : null,
-    ),
-  );
-
-const optionalProductName = z
-  .string()
-  .max(200)
-  .transform((v) => v.trim())
-  .transform((v) => (v.length > 0 ? v : null));
-
-export const runSchema = z.object({
-  vendor_id: z.string().uuid("Select a vendor"),
-  purchase_order_id: optionalUuid,
-  product_id: optionalUuid,
-  product_name: optionalProductName,
-  variant: optionalText,
-  quantity: z.coerce
-    .number()
-    .int("Quantity must be a whole number")
-    .min(0, "Quantity cannot be negative"),
-  stage: stageSchema.default("ordered"),
-  expected_completion_date: optionalDate,
-  expected_arrival_date: optionalDate,
-  actual_completion_date: optionalDate,
-  actual_arrival_date: optionalDate,
-  notes: optionalText,
-});
-
-export type RunFormValues = z.input<typeof runSchema>;
+const stageSchema = z.enum(MANUFACTURING_STAGE_VALUES);
 
 const idSchema = z.string().uuid();
 
