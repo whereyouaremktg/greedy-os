@@ -5,6 +5,7 @@ import { FileUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { DOCUMENT_ACCEPT } from "@/lib/documents/upload";
 import { cn } from "@/lib/utils";
 import type { ParsedManufacturingOrder } from "@/lib/manufacturing/parse-schema";
 
@@ -83,7 +84,7 @@ export function MoUploadDropzone({ onParsed, disabled, className }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp"
+        accept={DOCUMENT_ACCEPT}
         className="hidden"
         onChange={onInputChange}
       />

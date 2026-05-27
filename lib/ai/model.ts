@@ -10,5 +10,12 @@
 // Confirm slugs at https://vercel.com/<team>/~/ai/gateway/models
 const DEFAULT_GLOW_MODEL = "anthropic/claude-sonnet-4.6";
 
+// Document parsing (vision + PDF text). Gemini Flash is cheaper and available
+// on AI Gateway free tier; Sonnet vision may require paid credits.
+const DEFAULT_PARSE_MODEL = "google/gemini-2.5-flash";
+
 export const GLOW_MODEL =
   process.env.GLOW_AI_MODEL?.trim() || DEFAULT_GLOW_MODEL;
+
+export const GLOW_PARSE_MODEL =
+  process.env.GLOW_PARSE_MODEL?.trim() || DEFAULT_PARSE_MODEL;

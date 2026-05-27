@@ -5,6 +5,7 @@ import { FileUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { DOCUMENT_ACCEPT } from "@/lib/documents/upload";
 import { cn } from "@/lib/utils";
 import type { ParsedPurchaseOrder } from "@/lib/purchase-orders/schema";
 
@@ -83,7 +84,7 @@ export function PoUploadDropzone({ onParsed, disabled, className }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp"
+        accept={DOCUMENT_ACCEPT}
         className="hidden"
         onChange={onInputChange}
       />
@@ -98,8 +99,8 @@ export function PoUploadDropzone({ onParsed, disabled, className }: Props) {
           {parsing ? "Parsing purchase order…" : "Upload a PO document"}
         </p>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Drop a screenshot or photo of a wholesale PO (e.g. REVOLVE). The
-          analyst extracts line items, dates, and totals automatically.
+          Drop a PDF or screenshot of a wholesale PO (e.g. REVOLVE). We extract
+          line items, dates, and totals automatically.
         </p>
         <Button
           type="button"

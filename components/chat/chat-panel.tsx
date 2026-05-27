@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { DOCUMENT_ACCEPT } from "@/lib/documents/upload";
 import { enrichNumbers } from "@/components/chat/number-inline";
 import { StreamingDots } from "@/components/chat/streaming-dots";
 import { renderToolPart } from "@/components/chat/tool-chip";
@@ -270,14 +271,14 @@ export function ChatPanel() {
         <input
           ref={poFileInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept={DOCUMENT_ACCEPT}
           className="hidden"
           onChange={onPoFileChange}
         />
         <input
           ref={moFileInputRef}
           type="file"
-          accept="image/png,image/jpeg,image/webp"
+          accept={DOCUMENT_ACCEPT}
           className="hidden"
           onChange={onMoFileChange}
         />

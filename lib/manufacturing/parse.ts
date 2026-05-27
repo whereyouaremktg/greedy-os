@@ -1,12 +1,10 @@
-import { generateObject } from "ai";
-
-import { GLOW_MODEL } from "@/lib/ai/model";
 import {
   parsedManufacturingOrderSchema,
   type ParsedManufacturingOrder,
 } from "@/lib/manufacturing/parse-schema";
+import { generateObjectFromDocument } from "@/lib/documents/parse-with-llm";
 
-const PARSE_PROMPT = `Extract a factory manufacturing order from this document image.
+const PARSE_PROMPT = `Extract a factory manufacturing order from this document.
 
 This is typically a PROFORMA INVOICE or factory PO from a manufacturer (e.g. Shenzhen handbag/brush factory) TO Glow Beauty / the buyer.
 
@@ -30,34 +28,13 @@ export type ParseManufacturingOrderResult =
 export async function parseManufacturingOrderDocument(
   buffer: Buffer,
   mediaType: string,
+  kind: "image" | "pdf",
 ): Promise<ParseManufacturingOrderResult> {
-  try {
-    const { object } = await generateObject({
-      model: GLOW_MODEL,
-      schema: parsedManufacturingOrderSchema,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: PARSE_PROMPT },
-            {
-              type: "image",
-              image: buffer,
-              mediaType: mediaType as "image/png" | "image/jpeg" | "image/webp",
-            },
-          ],
-        },
-      ],
-    });
-
-    return { ok: true, data: object };
-  } catch (err) {
-    return {
-      ok: false,
-      error:
-        err instanceof Error
-          ? err.message
-          : "Failed to parse manufacturing order document",
-    };
-  }
+  return generateObjectFromDocument({
+    schema: parsedManufacturingOrderSchema,
+    prompt: PARSE_PROMPT,
+    buffer,
+    mediaType,
+    kind,
+  });
 }

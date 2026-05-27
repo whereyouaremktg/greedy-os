@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { readValidatedImageUpload } from "@/lib/documents/upload";
+import { readValidatedDocumentUpload } from "@/lib/documents/upload";
 import { parsePurchaseOrderDocument } from "@/lib/purchase-orders/parse";
 
 export const runtime = "nodejs";
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const read = await readValidatedImageUpload(file);
+  const read = await readValidatedDocumentUpload(file);
   if (!read.ok) {
     return Response.json({ ok: false, error: read.error }, { status: 400 });
   }
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
   const result = await parsePurchaseOrderDocument(
     read.buffer,
     read.mediaType,
+    read.kind,
   );
 
   if (!result.ok) {

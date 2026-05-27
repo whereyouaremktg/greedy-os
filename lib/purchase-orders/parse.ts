@@ -1,14 +1,12 @@
-import { generateObject } from "ai";
-
-import { GLOW_MODEL } from "@/lib/ai/model";
 import {
   parsedPurchaseOrderSchema,
   type ParsedPurchaseOrder,
 } from "@/lib/purchase-orders/schema";
+import { generateObjectFromDocument } from "@/lib/documents/parse-with-llm";
 
-const PARSE_PROMPT = `Extract a structured purchase order from this document image.
+const PARSE_PROMPT = `Extract a structured purchase order from this document.
 
-This is typically a wholesale buyer PO (e.g. REVOLVE) sent to Glow Beauty. Extract every line item visible.
+This is typically a wholesale buyer PO (e.g. REVOLVE) sent to Glow Beauty. Extract every line item visible across all pages.
 
 Rules:
 - Dates must be ISO format YYYY-MM-DD. Convert MM/DD/YY or similar (e.g. 03/10/26 → 2026-03-10).
@@ -27,34 +25,13 @@ export type ParsePurchaseOrderResult =
 export async function parsePurchaseOrderDocument(
   buffer: Buffer,
   mediaType: string,
+  kind: "image" | "pdf",
 ): Promise<ParsePurchaseOrderResult> {
-  try {
-    const { object } = await generateObject({
-      model: GLOW_MODEL,
-      schema: parsedPurchaseOrderSchema,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: PARSE_PROMPT },
-            {
-              type: "image",
-              image: buffer,
-              mediaType: mediaType as "image/png" | "image/jpeg" | "image/webp",
-            },
-          ],
-        },
-      ],
-    });
-
-    return { ok: true, data: object };
-  } catch (err) {
-    return {
-      ok: false,
-      error:
-        err instanceof Error
-          ? err.message
-          : "Failed to parse purchase order document",
-    };
-  }
+  return generateObjectFromDocument({
+    schema: parsedPurchaseOrderSchema,
+    prompt: PARSE_PROMPT,
+    buffer,
+    mediaType,
+    kind,
+  });
 }

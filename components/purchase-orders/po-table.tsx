@@ -198,7 +198,7 @@ export function PoTable({
           <SheetHeader>
             <SheetTitle>Upload purchase order</SheetTitle>
             <SheetDescription>
-              Upload a screenshot or photo. We&apos;ll extract header info, line
+              Upload a PDF or screenshot. We&apos;ll extract header info, line
               items, and per-style cancel dates.
             </SheetDescription>
           </SheetHeader>
