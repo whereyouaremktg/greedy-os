@@ -22,6 +22,7 @@ import {
   Sun,
   Plus,
   Settings,
+  CalendarRange,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -38,6 +39,7 @@ const PAGES = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/purchase-orders", label: "Purchase Orders", icon: FileText },
   { href: "/manufacturing", label: "Manufacturing", icon: Factory },
+  { href: "/timeline", label: "Timeline", icon: CalendarRange },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/vendors", label: "Vendors", icon: Building2 },
   { href: "/products", label: "Products", icon: Package },

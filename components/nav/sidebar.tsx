@@ -11,6 +11,7 @@ import {
   Package,
   LogOut,
   Settings,
+  CalendarRange,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -20,6 +21,7 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/purchase-orders", label: "Purchase Orders", icon: FileText },
   { href: "/manufacturing", label: "Manufacturing", icon: Factory },
+  { href: "/timeline", label: "Timeline", icon: CalendarRange },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/vendors", label: "Vendors", icon: Building2 },
   { href: "/products", label: "Products", icon: Package },
