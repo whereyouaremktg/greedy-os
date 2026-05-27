@@ -1,9 +1,13 @@
 import { addDays, formatISO } from "date-fns";
 import {
+  IdentityNotLinkedError,
   resolveGlowUser,
-  UNAUTHORIZED_SLACK_MESSAGE,
 } from "@/lib/slack/identity";
-import { paymentDueBlocks } from "@/lib/slack/messages";
+import {
+  identityNotLinkedBlocks,
+  identityNotLinkedText,
+  paymentDueBlocks,
+} from "@/lib/slack/messages";
 import { verifySlackSignature } from "@/lib/slack/verify";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -97,14 +101,19 @@ export async function POST(request: Request) {
     return new Response("ok");
   }
 
-  const glowUser = await resolveGlowUser(payload.user.id);
-  if (!glowUser) {
-    await respondOnResponseUrl(payload.response_url, {
-      replace_original: false,
-      response_type: "ephemeral",
-      text: UNAUTHORIZED_SLACK_MESSAGE,
-    });
-    return new Response("ok");
+  try {
+    await resolveGlowUser(payload.user.id);
+  } catch (err) {
+    if (err instanceof IdentityNotLinkedError) {
+      await respondOnResponseUrl(payload.response_url, {
+        replace_original: true,
+        response_type: "ephemeral",
+        text: identityNotLinkedText(err.slackUserId, err.slackEmail),
+        blocks: identityNotLinkedBlocks(err.slackUserId, err.slackEmail),
+      });
+      return new Response("ok");
+    }
+    throw err;
   }
 
   const supabase = createServiceClient();

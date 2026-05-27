@@ -14,6 +14,7 @@ import {
   updateRunDatesCore,
   updateRunStageCore,
 } from "@/lib/manufacturing/core";
+import { createVendorCore, createVendorInput } from "@/lib/vendors/core";
 import type { ManufacturingStage } from "@/lib/manufacturing/stages";
 import type { Database } from "@/types/db";
 
@@ -207,6 +208,22 @@ export function makeGlowTools(ctx: GlowToolCtx) {
           }
 
           return { ok: true, data: { runs, count: runs.length } };
+        }),
+    }),
+
+    createVendor: tool({
+      description:
+        "Create a new vendor (manufacturer, supplier, or 3PL). Use when the user provides at minimum a vendor name. Vendor creation is low-stakes — execute immediately after restating in plain English. Do NOT require explicit user confirmation.",
+      inputSchema: createVendorInput,
+      execute: async (input) =>
+        runTool(async () => {
+          const created = await createVendorCore(
+            supabase,
+            actorUserId,
+            input,
+          );
+          if (!created.ok) return created;
+          return { ok: true, data: created.data };
         }),
     }),
 

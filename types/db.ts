@@ -532,6 +532,27 @@ export type Database = {
         }
         Relationships: []
       }
+      slack_identities: {
+        Row: {
+          email: string | null
+          linked_at: string
+          slack_user_id: string
+          supabase_user_id: string
+        }
+        Insert: {
+          email?: string | null
+          linked_at?: string
+          slack_user_id: string
+          supabase_user_id: string
+        }
+        Update: {
+          email?: string | null
+          linked_at?: string
+          slack_user_id?: string
+          supabase_user_id?: string
+        }
+        Relationships: []
+      }
       slack_notifications: {
         Row: {
           channel: string

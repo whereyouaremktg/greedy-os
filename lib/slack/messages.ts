@@ -130,6 +130,31 @@ export function errorBlocks(): Block[] {
   );
 }
 
-export function unauthorizedBlocks(): Block[] {
-  return blocks(sectionBlock("*Sorry, I don't recognize this Slack account in Glow OS.*"));
+export function identityNotLinkedBlocks(
+  slackUserId: string,
+  slackEmail: string | null,
+): Block[] {
+  const emailLine = slackEmail
+    ? `*Your Slack email:* ${slackEmail}`
+    : '*Your Slack email:* "(not visible)"';
+  const text = [
+    "I'm not linked to your Glow OS account yet.",
+    `*Your Slack ID:* \`${slackUserId}\``,
+    emailLine,
+    `Ask Paul to link you at <${glowUrl("/settings")}|Settings → Slack identities>.`,
+  ].join("\n");
+  return blocks(sectionBlock(text));
+}
+
+export function identityNotLinkedText(
+  slackUserId: string,
+  slackEmail: string | null,
+): string {
+  const emailPart = slackEmail ?? "(not visible)";
+  return [
+    "I'm not linked to your Glow OS account yet.",
+    `Your Slack ID: ${slackUserId}`,
+    `Your Slack email: ${emailPart}`,
+    `Ask Paul to link you at ${glowUrl("/settings")} (Settings → Slack identities).`,
+  ].join("\n");
 }

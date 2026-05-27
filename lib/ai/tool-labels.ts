@@ -14,6 +14,10 @@ export function formatToolSuccessLabel(
   const data = output.data as RunWriteResult;
 
   switch (toolName) {
+    case "createVendor": {
+      const vendor = output.data as { id: string; name: string };
+      return `Created vendor #${shortId(vendor.id)} — ${vendor.name}`;
+    }
     case "createManufacturingRun":
       return `Created run #${shortId(data.id)} — ${data.quantity.toLocaleString()} units ${data.product_name} → ${data.vendor_name}`;
     case "updateRunStage":
@@ -31,6 +35,8 @@ export function formatToolSuccessLabel(
 
 export function formatToolRunningLabel(toolName: string): string {
   switch (toolName) {
+    case "createVendor":
+      return "Creating vendor";
     case "createManufacturingRun":
       return "Creating manufacturing run";
     case "updateRunStage":
@@ -48,6 +54,7 @@ export function formatToolRunningLabel(toolName: string): string {
 
 export function isWriteTool(toolName: string): boolean {
   return (
+    toolName === "createVendor" ||
     toolName === "createManufacturingRun" ||
     toolName === "updateRunStage" ||
     toolName === "updateRunArrival"

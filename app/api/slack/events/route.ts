@@ -7,12 +7,14 @@ import { extractWriteActions } from "@/lib/ai/slack-actions";
 import { makeGlowTools } from "@/lib/ai/tools";
 import { getSlackBotUserId, getSlackClient } from "@/lib/slack/client";
 import {
+  IdentityNotLinkedError,
   resolveGlowUser,
-  UNAUTHORIZED_SLACK_MESSAGE,
 } from "@/lib/slack/identity";
 import {
   analystAnswerWithActionsBlocks,
   errorBlocks,
+  identityNotLinkedBlocks,
+  identityNotLinkedText,
 } from "@/lib/slack/messages";
 import { verifySlackSignature } from "@/lib/slack/verify";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -65,24 +67,21 @@ async function handleAnalystQuestion(input: {
   question: string;
 }) {
   const slack = getSlackClient();
-  const glowUser = await resolveGlowUser(input.slackUserId);
 
-  if (!glowUser) {
-    await slack.chat.postMessage({
-      channel: input.channel,
-      thread_ts: input.threadTs,
-      text: UNAUTHORIZED_SLACK_MESSAGE,
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*${UNAUTHORIZED_SLACK_MESSAGE}*`,
-          },
-        },
-      ],
-    });
-    return;
+  let glowUser;
+  try {
+    glowUser = await resolveGlowUser(input.slackUserId);
+  } catch (err) {
+    if (err instanceof IdentityNotLinkedError) {
+      await slack.chat.postMessage({
+        channel: input.channel,
+        thread_ts: input.threadTs,
+        text: identityNotLinkedText(err.slackUserId, err.slackEmail),
+        blocks: identityNotLinkedBlocks(err.slackUserId, err.slackEmail),
+      });
+      return;
+    }
+    throw err;
   }
 
   try {

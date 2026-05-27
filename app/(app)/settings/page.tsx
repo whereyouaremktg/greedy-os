@@ -6,11 +6,13 @@ import {
 import { ConnectorCard } from "@/components/settings/connector-card";
 import { QuickbooksCard } from "@/components/settings/quickbooks-card";
 import { QbResultToast } from "@/components/settings/qb-result-toast";
+import { SlackIdentitiesCard } from "@/components/settings/slack-identities-card";
+import { loadSlackIdentitiesSettings } from "@/lib/settings/slack-identities-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const [statuses, qbState] = await Promise.all([
+  const [statuses, qbState, slackIdentities] = await Promise.all([
     Promise.all(
       CONNECTORS.map(async (c) => ({
         id: c.id,
@@ -21,6 +23,7 @@ export default async function SettingsPage() {
       })),
     ),
     getQuickbooksConnectionState(),
+    loadSlackIdentitiesSettings(),
   ]);
 
   return (
@@ -35,6 +38,11 @@ export default async function SettingsPage() {
           overrides them.
         </p>
       </header>
+
+      <SlackIdentitiesCard
+        rows={slackIdentities.rows}
+        authUsers={slackIdentities.authUsers}
+      />
 
       <section className="grid gap-4 lg:grid-cols-2">
         {statuses.map((c) =>

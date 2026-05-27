@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { createVendorCore } from "@/lib/vendors/core"
 
 export type ActionResult = { ok: true } | { ok: false; error: string }
 
@@ -64,10 +65,20 @@ export async function createVendor(
   }
 
   const supabase = await createClient()
-  const { error } = await supabase.from("vendors").insert(parsed.data)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (error) {
-    return { ok: false, error: describeError(error, "Failed to create vendor") }
+  const created = await createVendorCore(supabase, user?.id ?? null, {
+    name: parsed.data.name,
+    contact_name: parsed.data.contact_name ?? undefined,
+    email: parsed.data.email ?? undefined,
+    phone: parsed.data.phone ?? undefined,
+    notes: parsed.data.notes ?? undefined,
+  })
+
+  if (!created.ok) {
+    return { ok: false, error: created.error.message }
   }
 
   revalidatePath("/vendors")
