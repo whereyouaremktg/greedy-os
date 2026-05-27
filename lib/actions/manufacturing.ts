@@ -53,15 +53,17 @@ const optionalUuid = z
     ),
   );
 
+const optionalProductName = z
+  .string()
+  .max(200)
+  .transform((v) => v.trim())
+  .transform((v) => (v.length > 0 ? v : null));
+
 export const runSchema = z.object({
   vendor_id: z.string().uuid("Select a vendor"),
   purchase_order_id: optionalUuid,
   product_id: optionalUuid,
-  product_name: z
-    .string()
-    .max(200)
-    .transform((v) => v.trim())
-    .pipe(z.string().min(1, "Product name is required")),
+  product_name: optionalProductName,
   variant: optionalText,
   quantity: z.coerce
     .number()
@@ -102,8 +104,35 @@ async function getAuthedClient() {
   return { supabase, user, error: null } as const;
 }
 
-function toCoreInput(parsed: z.output<typeof runSchema>): CreateRunInput {
-  return parsed;
+const UNNAMED_PRODUCT = "Unnamed product";
+
+async function resolveProductName(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productId: string | null,
+  productName: string | null,
+): Promise<string> {
+  if (productName) return productName;
+  if (productId) {
+    const { data } = await supabase
+      .from("products")
+      .select("name")
+      .eq("id", productId)
+      .maybeSingle();
+    if (data?.name?.trim()) return data.name.trim();
+  }
+  return UNNAMED_PRODUCT;
+}
+
+async function toCoreInput(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  parsed: z.output<typeof runSchema>,
+): Promise<CreateRunInput> {
+  const product_name = await resolveProductName(
+    supabase,
+    parsed.product_id,
+    parsed.product_name,
+  );
+  return { ...parsed, product_name };
 }
 
 export async function createRun(
@@ -120,7 +149,7 @@ export async function createRun(
   const result = await createRunCore(
     auth.supabase,
     auth.user!.id,
-    toCoreInput(parsed.data),
+    await toCoreInput(auth.supabase, parsed.data),
   );
   if (result.ok) revalidatePath("/manufacturing");
   return result;
@@ -147,7 +176,7 @@ export async function updateRun(
     auth.supabase,
     auth.user!.id,
     idResult.data,
-    toCoreInput(parsed.data),
+    await toCoreInput(auth.supabase, parsed.data),
   );
   if (result.ok) revalidatePath("/manufacturing");
   return result;

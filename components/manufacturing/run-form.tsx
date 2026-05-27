@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useForm, type Resolver } from "react-hook-form";
+import { useForm, type FieldErrors, type Resolver } from "react-hook-form";
 import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -83,9 +84,9 @@ export function RunForm({
   onCancel?: () => void;
   onDeleted?: () => void;
 }) {
-  const [pending, startTransition] = React.useTransition();
+  const [submitting, setSubmitting] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
-  const [deletePending, startDeleteTransition] = React.useTransition();
+  const [deletePending, setDeletePending] = React.useState(false);
   const isEdit = !!run;
   const hasPurchaseOrders = purchaseOrders.length > 0;
 
@@ -94,42 +95,66 @@ export function RunForm({
     defaultValues: toFormValues(run),
   });
 
-  function onSubmit(values: RunFormValues) {
-    startTransition(async () => {
+  function showValidationToast(errors: FieldErrors<RunFormValues>) {
+    const first = Object.values(errors).find((e) => e?.message);
+    toast.error(
+      first?.message
+        ? String(first.message)
+        : "Fix the highlighted fields to continue.",
+    );
+    const firstKey = Object.keys(errors)[0] as keyof RunFormValues | undefined;
+    if (firstKey) form.setFocus(firstKey);
+  }
+
+  async function onSubmit(values: RunFormValues) {
+    setSubmitting(true);
+    const toastId = toast.loading(isEdit ? "Saving run…" : "Creating run…");
+    try {
       const result = isEdit
         ? await updateRun(run.id, values)
         : await createRun(values);
 
       if (result.ok) {
-        toast.success(isEdit ? "Run updated" : "Run created");
+        toast.success(isEdit ? "Run updated" : "Run created", { id: toastId });
         onSuccess?.();
       } else {
-        toast.error(result.error.message);
+        toast.error(result.error.message, { id: toastId });
       }
-    });
+    } catch {
+      toast.error("Something went wrong. Try again.", { id: toastId });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!run) return;
-    startDeleteTransition(async () => {
+    setDeletePending(true);
+    const toastId = toast.loading("Deleting run…");
+    try {
       const result = await deleteRun(run.id);
       if (result.ok) {
-        toast.success(`Deleted ${run.product_name}`);
+        toast.success(`Deleted ${run.product_name}`, { id: toastId });
         setDeleteOpen(false);
         onDeleted?.();
         onSuccess?.();
       } else {
-        toast.error(result.error.message);
+        toast.error(result.error.message, { id: toastId });
       }
-    });
+    } catch {
+      toast.error("Something went wrong. Try again.", { id: toastId });
+    } finally {
+      setDeletePending(false);
+    }
   }
 
   return (
     <>
       <Form {...form}>
         <form
-          onSubmit={form.handleSubmit(onSubmit)}
+          onSubmit={form.handleSubmit(onSubmit, showValidationToast)}
           className="flex flex-col gap-4"
+          aria-busy={submitting}
         >
           <FormField
             control={form.control}
@@ -189,7 +214,7 @@ export function RunForm({
             name="product_id"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Catalog product</FormLabel>
+                <FormLabel>Catalog product (optional)</FormLabel>
                 <FormControl>
                   <ProductCombobox
                     products={products}
@@ -217,9 +242,9 @@ export function RunForm({
             name="product_name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Product name</FormLabel>
+                <FormLabel>Product name (optional)</FormLabel>
                 <FormControl>
-                  <Input placeholder="Silk Press Serum" {...field} />
+                  <Input placeholder="Silk Press Serum — or leave blank" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -231,7 +256,7 @@ export function RunForm({
             name="variant"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Variant</FormLabel>
+                <FormLabel>Variant (optional)</FormLabel>
                 <FormControl>
                   <Input placeholder="8 oz" {...field} />
                 </FormControl>
@@ -286,13 +311,17 @@ export function RunForm({
             )}
           />
 
+          <p className="text-xs text-muted-foreground">
+            Timeline and notes are optional — add them when you have them.
+          </p>
+
           <div className="grid grid-cols-2 gap-3">
             <FormField
               control={form.control}
               name="expected_completion_date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Expected completion</FormLabel>
+                  <FormLabel>Expected completion (optional)</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} value={field.value ?? ""} />
                   </FormControl>
@@ -305,7 +334,7 @@ export function RunForm({
               name="expected_arrival_date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Expected arrival</FormLabel>
+                  <FormLabel>Expected arrival (optional)</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} value={field.value ?? ""} />
                   </FormControl>
@@ -321,7 +350,7 @@ export function RunForm({
               name="actual_completion_date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Actual completion</FormLabel>
+                  <FormLabel>Actual completion (optional)</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} value={field.value ?? ""} />
                   </FormControl>
@@ -334,7 +363,7 @@ export function RunForm({
               name="actual_arrival_date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Actual arrival</FormLabel>
+                  <FormLabel>Actual arrival (optional)</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} value={field.value ?? ""} />
                   </FormControl>
@@ -349,7 +378,7 @@ export function RunForm({
             name="notes"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Notes</FormLabel>
+                <FormLabel>Notes (optional)</FormLabel>
                 <FormControl>
                   <Textarea rows={3} placeholder="MO notes, QC flags…" {...field} />
                 </FormControl>
@@ -358,39 +387,44 @@ export function RunForm({
             )}
           />
 
-          <div className="mt-2 flex items-center justify-between gap-2">
-            {isEdit ? (
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => setDeleteOpen(true)}
-                disabled={pending || deletePending}
-              >
-                Delete
-              </Button>
-            ) : (
-              <span />
-            )}
-            <div className="flex gap-2">
-              {onCancel ? (
+          <div className="sticky bottom-0 -mx-4 mt-2 border-t bg-background px-4 py-3">
+            <div className="flex items-center justify-between gap-2">
+              {isEdit ? (
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={onCancel}
-                  disabled={pending}
+                  variant="destructive"
+                  onClick={() => setDeleteOpen(true)}
+                  disabled={submitting || deletePending}
                 >
-                  Cancel
+                  Delete
                 </Button>
-              ) : null}
-              <Button type="submit" disabled={pending}>
-                {pending
-                  ? isEdit
-                    ? "Saving..."
-                    : "Creating..."
-                  : isEdit
-                    ? "Save changes"
-                    : "Create run"}
-              </Button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                {onCancel ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onCancel}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                ) : null}
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="animate-spin" />
+                      {isEdit ? "Saving…" : "Creating…"}
+                    </>
+                  ) : isEdit ? (
+                    "Save changes"
+                  ) : (
+                    "Create run"
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </form>
