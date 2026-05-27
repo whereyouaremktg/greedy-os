@@ -1,5 +1,4 @@
 import type { ParsedManufacturingOrder } from "@/lib/manufacturing/parse-schema";
-import type { ParsedPurchaseOrder } from "@/lib/purchase-orders/schema";
 
 const SHIPPING_LINE = /\b(shipping|freight|delivery|logistics)\b/i;
 
@@ -50,12 +49,6 @@ export function manufacturingProductCostUsd(
 
   if (fromLines > 0) return fromLines;
   return parsed.total_amount_usd ?? 0;
-}
-
-/** Wholesale revenue per unit (buyer PO total ÷ units). */
-export function wholesaleSellPricePerUnit(parsed: ParsedPurchaseOrder): number {
-  if (parsed.total_units <= 0) return 0;
-  return parsed.total_price / parsed.total_units;
 }
 
 export function computeLandedMargin(input: {

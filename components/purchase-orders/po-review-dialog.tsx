@@ -22,12 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { LandedMarginPanel } from "@/components/costing/landed-margin-panel";
-import {
-  formatCostingNotes,
-  wholesaleSellPricePerUnit,
-  type LandedMarginResult,
-} from "@/lib/costing/landed-margin";
 import { formatUsd } from "@/lib/format";
 import { createPurchaseOrderFromParsed } from "@/lib/actions/purchase-orders";
 import type { ParsedPurchaseOrder } from "@/lib/purchase-orders/schema";
@@ -41,19 +35,12 @@ type Props = {
 export function PoReviewDialog({ parsed, open, onOpenChange }: Props) {
   const router = useRouter();
   const [pending, startTransition] = React.useTransition();
-  const [costingResult, setCostingResult] =
-    React.useState<LandedMarginResult | null>(null);
 
   function handleSave() {
     if (!parsed) return;
 
     startTransition(async () => {
-      const costingNotes = costingResult
-        ? formatCostingNotes(costingResult)
-        : undefined;
-      const result = await createPurchaseOrderFromParsed(parsed, {
-        costingNotes,
-      });
+      const result = await createPurchaseOrderFromParsed(parsed);
       if (result.ok && result.data) {
         toast.success(
           `Saved PO ${result.data.po_number ?? result.data.id.slice(0, 8)} — ${result.data.line_item_count} styles, ${result.data.total_units.toLocaleString()} units`,
@@ -70,7 +57,7 @@ export function PoReviewDialog({ parsed, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Review parsed purchase order</DialogTitle>
           <DialogDescription>
@@ -147,20 +134,6 @@ export function PoReviewDialog({ parsed, open, onOpenChange }: Props) {
             </TableBody>
           </Table>
         </div>
-
-        <LandedMarginPanel
-          key={
-            parsed.vendor_po_number ??
-            parsed.order_number ??
-            parsed.buyer_name
-          }
-          quantity={parsed.total_units}
-          defaultProductCostUsd={0}
-          defaultSellPricePerUnitUsd={wholesaleSellPricePerUnit(parsed)}
-          productCostLabel="Your product / factory cost (USD)"
-          sellPriceLabel="Wholesale sell price / unit (from PO)"
-          onResultChange={setCostingResult}
-        />
 
         <DialogFooter>
           <Button
