@@ -2,14 +2,17 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 import { qboFetch } from "@/lib/quickbooks/client";
 
-// QuickBooks puller — pulls a 30-day window into qb_financials.
+// QuickBooks puller — pulls a 30-day window into qb_financials +
+// qb_revenue_by_channel.
 //
 // Reports we use (all "Reports" REST endpoints under /v3/company/{realmId}):
-//   - BalanceSheet           (today only) → cash_position (Bank Accounts row)
-//   - AgedReceivableDetail   (today only) → AR aging buckets + ar_total
-//   - AgedPayableDetail      (today only) → ap_total + ap_due_30
-//   - ProfitAndLoss          (per day, last 30) → revenue / cogs / expenses /
-//                                                 net_income
+//   - BalanceSheet                     (today only) → cash_position
+//   - AgedReceivableDetail             (today only) → AR aging buckets
+//   - AgedPayableDetail                (today only) → ap_total + ap_due_30
+//   - ProfitAndLoss                    (per day, 30) → revenue/cogs/exp/ni
+//   - ProfitAndLoss?summarize_column_by=Class  (per day, 30) → revenue split
+//                                                              by class →
+//                                                              DTC / wholesale
 //
 // QBO reports return a JSON Header/Columns/Rows tree. Row sections nest
 // recursively; each section has a Summary row whose last "Amount" cell is the
@@ -220,6 +223,88 @@ async function fetchApAging(): Promise<{ total: number; due30: number }> {
   return { total: round2(total), due30: round2(current + d30) };
 }
 
+// ----- ProfitAndLoss by Class → channel revenue split -----
+//
+// Heuristic mapping QBO Class names → (dtc | wholesale | other). QBO classes
+// are free-text so we keyword-match on the lowercased name. If a company
+// uses non-obvious class names, edit CHANNEL_KEYWORDS below or extend this
+// puller to consult a stored mapping in connector_credentials.
+const CHANNEL_KEYWORDS: { dtc: RegExp; wholesale: RegExp } = {
+  dtc: /(dtc|shopify|d2c|direct|retail|website|online|ecom|e-?commerce|amazon)/i,
+  wholesale: /(wholesale|whlsl|b2b|distributor|reseller|trade|key\s?account)/i,
+};
+
+export function classifyClassName(name: string): "dtc" | "wholesale" | "other" {
+  const trimmed = name.trim();
+  if (CHANNEL_KEYWORDS.wholesale.test(trimmed)) return "wholesale";
+  if (CHANNEL_KEYWORDS.dtc.test(trimmed)) return "dtc";
+  return "other";
+}
+
+type ChannelDay = {
+  dtc: number;
+  wholesale: number;
+  other: number;
+  classes: Record<string, number>;
+};
+
+// QBO ProfitAndLoss with summarize_column_by=Class returns one column per
+// class plus a TOTAL column. We pull the "Total Income" summary row and
+// distribute each column's amount into a channel bucket using the column
+// title (class name) as the key.
+async function fetchRevenueByClassForDay(date: string): Promise<ChannelDay> {
+  const report = await qboFetch<Report>(
+    `/reports/ProfitAndLoss?start_date=${date}&end_date=${date}&summarize_column_by=Class`,
+  );
+
+  const columns = report.Columns?.Column ?? [];
+  // Find the "Total Income" section's Summary row across all class columns.
+  let summaryRow: Row | undefined;
+  for (const row of walkRows(report.Rows?.Row)) {
+    const label = rowLabel(row).toLowerCase();
+    if ((label === "total income" || label === "income") && row.Summary?.ColData) {
+      summaryRow = row;
+      break;
+    }
+  }
+
+  const result: ChannelDay = {
+    dtc: 0,
+    wholesale: 0,
+    other: 0,
+    classes: {},
+  };
+
+  if (!summaryRow?.Summary?.ColData) return result;
+
+  const cells = summaryRow.Summary.ColData;
+  // QBO column 0 is the row label; columns 1..n-1 are class columns; the
+  // last column is the row total (we skip it to avoid double-counting).
+  for (let i = 1; i < columns.length && i < cells.length; i++) {
+    const col = columns[i];
+    const title = col?.ColTitle?.trim() ?? "";
+    if (!title) continue;
+    // Skip the trailing "TOTAL" column if QBO included it.
+    if (title.toLowerCase() === "total" && i === columns.length - 1) continue;
+
+    const amount = round2(parseAmount(cells[i]?.value));
+    if (!Number.isFinite(amount) || amount === 0) {
+      // Still record zero classes so the audit blob is complete.
+      result.classes[title] = 0;
+      continue;
+    }
+
+    result.classes[title] = amount;
+    const bucket = classifyClassName(title);
+    result[bucket] += amount;
+  }
+
+  result.dtc = round2(result.dtc);
+  result.wholesale = round2(result.wholesale);
+  result.other = round2(result.other);
+  return result;
+}
+
 // ----- ProfitAndLoss (per day) -----
 type PnlRow = {
   revenue: number;
@@ -329,11 +414,23 @@ export async function runQuickbooksPull(): Promise<{
   const todayIso = dates[0];
 
   const pnlByDate = new Map<string, PnlRow>();
+  const channelByDate = new Map<string, ChannelDay>();
+  let channelFailures = 0;
   await pMap(
     dates,
     async (date) => {
-      const pnl = await fetchPnlForDay(date);
+      const [pnl, channels] = await Promise.all([
+        fetchPnlForDay(date),
+        fetchRevenueByClassForDay(date).catch((err: unknown) => {
+          channelFailures++;
+          notes.push(
+            `P&L by Class failed for ${date}: ${(err as Error).message}`,
+          );
+          return null;
+        }),
+      ]);
       pnlByDate.set(date, pnl);
+      if (channels) channelByDate.set(date, channels);
     },
     MAX_CONCURRENT_PNL,
   );
@@ -374,5 +471,40 @@ export async function runQuickbooksPull(): Promise<{
     .upsert(rows, { onConflict: "as_of_date" });
 
   if (error) throw new Error(`qb_financials upsert: ${error.message}`);
+
+  // qb_revenue_by_channel — only upsert dates where the by-class fetch
+  // succeeded. Missing rows surface as nulls / empty state in the UI.
+  if (channelByDate.size > 0) {
+    const channelRows = [...channelByDate.entries()].map(
+      ([as_of_date, c]) => ({
+        as_of_date,
+        dtc_revenue: c.dtc,
+        wholesale_revenue: c.wholesale,
+        other_revenue: c.other,
+        total_revenue: round2(c.dtc + c.wholesale + c.other),
+        classes: c.classes,
+        synced_at: now,
+      }),
+    );
+
+    const { error: channelError } = await supabase
+      .from("qb_revenue_by_channel")
+      .upsert(channelRows, { onConflict: "as_of_date" });
+
+    if (channelError) {
+      notes.push(`qb_revenue_by_channel upsert: ${channelError.message}`);
+    }
+  } else {
+    notes.push(
+      "qb_revenue_by_channel skipped — no per-class days fetched (check that QBO Class tracking is enabled and classes are named with DTC/wholesale keywords).",
+    );
+  }
+
+  if (channelFailures > 0) {
+    notes.push(
+      `${channelFailures}/${dates.length} P&L-by-Class days failed; channel split may be incomplete.`,
+    );
+  }
+
   return { ok: true, rows: rows.length, notes };
 }

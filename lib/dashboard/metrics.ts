@@ -303,6 +303,80 @@ export async function getPoPaymentsStatus(supabase: DB): Promise<PoPayments> {
   return { dueNext14Count, overdueCount, dueNext14Amount, overdueAmount };
 }
 
+export type ChannelRevenuePoint = {
+  date: string;
+  dtc: number;
+  wholesale: number;
+  other: number;
+  total: number;
+};
+
+export type RevenueByChannel = {
+  points: ChannelRevenuePoint[]; // oldest → newest
+  totalDtc: number;
+  totalWholesale: number;
+  totalOther: number;
+  total: number;
+  dtcShare: number; // 0..1, share of (dtc+wholesale) — ignores "other"
+  wholesaleShare: number;
+  dtcTrend?: number[];
+  wholesaleTrend?: number[];
+  dtcDelta?: MetricDelta;
+  wholesaleDelta?: MetricDelta;
+  syncedAt: string | null;
+  hasData: boolean;
+};
+
+export async function getRevenueByChannel(
+  supabase: DB,
+): Promise<RevenueByChannel> {
+  const { data } = await supabase
+    .from("qb_revenue_by_channel")
+    .select(
+      "as_of_date, dtc_revenue, wholesale_revenue, other_revenue, total_revenue, synced_at",
+    )
+    .order("as_of_date", { ascending: false })
+    .limit(30);
+
+  const rows = data ?? [];
+  const points: ChannelRevenuePoint[] = [...rows].reverse().map((r) => ({
+    date: r.as_of_date,
+    dtc: r.dtc_revenue ?? 0,
+    wholesale: r.wholesale_revenue ?? 0,
+    other: r.other_revenue ?? 0,
+    total:
+      r.total_revenue ??
+      (r.dtc_revenue ?? 0) +
+        (r.wholesale_revenue ?? 0) +
+        (r.other_revenue ?? 0),
+  }));
+
+  const totalDtc = points.reduce((s, p) => s + p.dtc, 0);
+  const totalWholesale = points.reduce((s, p) => s + p.wholesale, 0);
+  const totalOther = points.reduce((s, p) => s + p.other, 0);
+  const total = totalDtc + totalWholesale + totalOther;
+  const known = totalDtc + totalWholesale;
+
+  const dtcTrend = lastN(points.map((p) => p.dtc));
+  const wholesaleTrend = lastN(points.map((p) => p.wholesale));
+
+  return {
+    points,
+    totalDtc,
+    totalWholesale,
+    totalOther,
+    total,
+    dtcShare: known > 0 ? totalDtc / known : 0,
+    wholesaleShare: known > 0 ? totalWholesale / known : 0,
+    dtcTrend: dtcTrend.length > 1 ? dtcTrend : undefined,
+    wholesaleTrend: wholesaleTrend.length > 1 ? wholesaleTrend : undefined,
+    dtcDelta: deltaFromSeries(dtcTrend, "vs prior 7d"),
+    wholesaleDelta: deltaFromSeries(wholesaleTrend, "vs prior 7d"),
+    syncedAt: rows[0]?.synced_at ?? null,
+    hasData: rows.length > 0 && total > 0,
+  };
+}
+
 export type InProduction = {
   total: number;
   ordered: number;

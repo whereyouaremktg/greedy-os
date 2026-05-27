@@ -46,6 +46,8 @@ Fonts: **Geist Sans** (body), **Geist Mono** (code / tooltips).
 | `KpiTile` | `components/dashboard/kpi-tile.tsx` | Sparkline, delta, animated number, status dot. Preserves `syncedAt` / `staleAfterMs` / `sub` / `status` API. |
 | `AnimatedValue` | `components/dashboard/animated-value.tsx` | `@number-flow/react` wrapper |
 | `KpiSparkline` | `components/dashboard/kpi-sparkline.tsx` | 14-day Recharts area, no axes |
+| `ChannelMixCard` | `components/dashboard/channel-mix-card.tsx` | DTC vs Wholesale revenue split with bar, totals, deltas, stacked chart. Empty state when QB classes not synced. |
+| `ChannelRevenueChart` | `components/dashboard/channel-revenue-chart.tsx` | Stacked DTC + Wholesale 30-day area (Recharts) |
 | `EmptyState` | `components/empty-state.tsx` | Zero-data surfaces |
 | `CommandPalette` | `components/command/command-palette.tsx` | `cmdk` + global `⌘K` |
 | `ThemeToggle` | `components/theme-toggle.tsx` | Light ↔ dark cycle |

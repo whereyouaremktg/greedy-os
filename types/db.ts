@@ -560,6 +560,36 @@ export type Database = {
           },
         ]
       }
+      qb_revenue_by_channel: {
+        Row: {
+          as_of_date: string
+          dtc_revenue: number | null
+          wholesale_revenue: number | null
+          other_revenue: number | null
+          total_revenue: number | null
+          classes: Json | null
+          synced_at: string
+        }
+        Insert: {
+          as_of_date: string
+          dtc_revenue?: number | null
+          wholesale_revenue?: number | null
+          other_revenue?: number | null
+          total_revenue?: number | null
+          classes?: Json | null
+          synced_at?: string
+        }
+        Update: {
+          as_of_date?: string
+          dtc_revenue?: number | null
+          wholesale_revenue?: number | null
+          other_revenue?: number | null
+          total_revenue?: number | null
+          classes?: Json | null
+          synced_at?: string
+        }
+        Relationships: []
+      }
       qb_financials: {
         Row: {
           ap_due_30: number | null
