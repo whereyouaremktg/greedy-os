@@ -62,7 +62,11 @@ function buildParsedPoMessage(parsed: ParsedPurchaseOrder): string {
   ].join("\n");
 }
 
-export function ChatPanel() {
+export function ChatPanel({
+  variant = "default",
+}: {
+  variant?: "default" | "drawer";
+} = {}) {
   const [input, setInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const poFileInputRef = useRef<HTMLInputElement>(null);
@@ -160,7 +164,14 @@ export function ChatPanel() {
   }, [messages, status]);
 
   return (
-    <div className="flex h-full min-h-[480px] flex-col rounded-lg border bg-card lg:sticky lg:top-[calc(3rem+1.5rem)] lg:h-[calc(100vh-3rem-3rem)]">
+    <div
+      className={cn(
+        "flex flex-col bg-card",
+        variant === "drawer"
+          ? "h-full min-h-0"
+          : "h-full min-h-[480px] rounded-lg border lg:sticky lg:top-[calc(3rem+1.5rem)] lg:h-[calc(100vh-3rem-3rem)]",
+      )}
+    >
       <div className="flex items-center gap-2 border-b px-4 py-3">
         <span className="size-1.5 rounded-full bg-success animate-pulse" />
         <h2 className="text-sm font-medium">Analyst</h2>

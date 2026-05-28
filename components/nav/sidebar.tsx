@@ -14,26 +14,75 @@ import {
   CalendarRange,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ThemeToggle } from "@/components/theme-toggle";
-import type { GlobalSyncStatus } from "@/lib/dashboard/sync-status";
+import type {
+  GlobalSyncStatus,
+  NavCounter,
+  NavCounters,
+} from "@/lib/dashboard/sync-status";
 
-const NAV = [
+type NavCounterKey = keyof NavCounters;
+
+const NAV: {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  counter?: NavCounterKey;
+}[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/purchase-orders", label: "Purchase Orders", icon: FileText },
-  { href: "/manufacturing", label: "Manufacturing", icon: Factory },
-  { href: "/timeline", label: "Timeline", icon: CalendarRange },
-  { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+  {
+    href: "/purchase-orders",
+    label: "Purchase Orders",
+    icon: FileText,
+    counter: "purchaseOrders",
+  },
+  {
+    href: "/manufacturing",
+    label: "Manufacturing",
+    icon: Factory,
+    counter: "manufacturing",
+  },
+  {
+    href: "/timeline",
+    label: "Timeline",
+    icon: CalendarRange,
+    counter: "timeline",
+  },
+  {
+    href: "/campaigns",
+    label: "Campaigns",
+    icon: Megaphone,
+    counter: "campaigns",
+  },
   { href: "/vendors", label: "Vendors", icon: Building2 },
   { href: "/products", label: "Products", icon: Package },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+function NavCounterPill({ counter }: { counter: NavCounter }) {
+  if (!counter || counter.count <= 0) return null;
+  return (
+    <span
+      className={cn(
+        "ml-auto inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[11px] font-medium num",
+        counter.tone === "warning"
+          ? "bg-warning/15 text-warning"
+          : "bg-muted text-muted-foreground",
+      )}
+      aria-label={`${counter.count} ${counter.tone === "warning" ? "needs attention" : "open"}`}
+    >
+      {counter.count}
+    </span>
+  );
+}
+
 export function Sidebar({
   email,
   syncStatus,
+  navCounters,
 }: {
   email: string;
   syncStatus: GlobalSyncStatus;
+  navCounters: NavCounters;
 }) {
   const pathname = usePathname();
 
@@ -49,9 +98,10 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 px-2 py-3 space-y-0.5">
-        {NAV.map(({ href, label, icon: Icon }) => {
+        {NAV.map(({ href, label, icon: Icon, counter }) => {
           const active =
             pathname === href || pathname.startsWith(`${href}/`);
+          const counterValue = counter ? navCounters[counter] : null;
           return (
             <Link
               key={href}
@@ -65,7 +115,8 @@ export function Sidebar({
               suppressHydrationWarning
             >
               <Icon className="size-4 shrink-0" />
-              {label}
+              <span className="truncate">{label}</span>
+              <NavCounterPill counter={counterValue} />
             </Link>
           );
         })}
@@ -91,7 +142,6 @@ export function Sidebar({
         </div>
 
         <div className="flex items-center gap-1 px-1">
-          <ThemeToggle />
           <span
             className="flex-1 text-[11px] text-muted-foreground truncate min-w-0"
             title={email}

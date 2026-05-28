@@ -32,6 +32,7 @@ import {
 import { VendorForm } from "@/components/vendors/vendor-form"
 import { deleteVendor } from "@/lib/actions/vendors"
 import { EmptyState, EmptyStateAction } from "@/components/empty-state"
+import { PageHeader } from "@/components/nav/page-header"
 
 export type VendorRow = {
   id: string
@@ -94,18 +95,16 @@ export function VendorTable({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Vendors</h1>
-          <p className="text-sm text-muted-foreground">
-            Manufacturers and suppliers.
-          </p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus />
-          New vendor
-        </Button>
-      </div>
+      <PageHeader
+        title="Vendors"
+        description="Manufacturers and suppliers."
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus />
+            New vendor
+          </Button>
+        }
+      />
 
       <div className="rounded-md border">
         {vendors.length === 0 ? (

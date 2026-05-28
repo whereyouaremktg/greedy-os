@@ -18,6 +18,8 @@ import {
 import { AnimatedValue } from "@/components/dashboard/animated-value";
 import { KpiSparkline } from "@/components/dashboard/kpi-sparkline";
 
+export { tileStatus };
+
 export type KpiFormat = "usd" | "number" | "percent";
 
 type Delta = {
@@ -42,7 +44,7 @@ type Props = {
   delta?: Delta;
 };
 
-function statusDotClass(status: TileStatus): string {
+export function statusDotClass(status: TileStatus): string {
   switch (status) {
     case "live":
       return "bg-success";
@@ -107,7 +109,7 @@ function HeadlineValue({
   );
 }
 
-function SyncTooltip({
+export function SyncTooltip({
   syncedAt,
   rawValue,
   format,

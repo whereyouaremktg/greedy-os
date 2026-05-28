@@ -19,6 +19,7 @@ import type {
   VendorOption,
 } from "@/components/manufacturing/types";
 import { EmptyState, EmptyStateAction } from "@/components/empty-state";
+import { PageHeader } from "@/components/nav/page-header";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -129,17 +130,11 @@ export function ManufacturingView({
   return (
     <>
       <div className="space-y-4">
-        <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 pb-3 backdrop-blur supports-backdrop-filter:bg-background/80">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Manufacturing
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Production runs from order through arrival.
-              </p>
-            </div>
-            <div className="flex shrink-0 gap-2">
+        <PageHeader
+          title="Manufacturing"
+          description="Production runs from order through arrival."
+          actions={
+            <div className="flex gap-2">
               <Button variant="outline" onClick={() => setUploadOpen(true)}>
                 <FileUp />
                 Upload proforma
@@ -149,9 +144,9 @@ export function ManufacturingView({
                 New run
               </Button>
             </div>
-          </div>
-
-          <Tabs defaultValue="board" className="mt-4 gap-4">
+          }
+        >
+          <Tabs defaultValue="board" className="gap-4">
             <TabsList>
               <TabsTrigger value="board">Board</TabsTrigger>
               <TabsTrigger value="list">List</TabsTrigger>
@@ -207,7 +202,7 @@ export function ManufacturingView({
               )}
             </TabsContent>
           </Tabs>
-        </div>
+        </PageHeader>
       </div>
 
       <Sheet open={uploadSheetOpen} onOpenChange={handleUploadOpenChange}>

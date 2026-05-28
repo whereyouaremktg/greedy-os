@@ -1,11 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search } from "lucide-react";
+import { useSyncExternalStore } from "react";
+import { LogOut, Moon, Search, Sparkles, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useCommandPalette } from "@/components/command/command-palette";
+import { useAnalystDrawer } from "@/components/chat/analyst-drawer";
 import { formatRelativeTime } from "@/lib/format";
 import type { GlobalSyncStatus } from "@/lib/dashboard/sync-status";
 
@@ -43,6 +52,76 @@ function syncPillLabel(syncStatus: GlobalSyncStatus): string {
   return `Last sync: ${rel}`;
 }
 
+function subscribe() {
+  return () => {};
+}
+
+function AvatarMenu({ email }: { email: string }) {
+  const { setTheme, resolvedTheme, theme } = useTheme();
+  const mounted = useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false,
+  );
+  const isDark = mounted && (resolvedTheme ?? theme) === "dark";
+
+  const handleToggleTheme = () => {
+    setTheme(isDark ? "light" : "dark");
+  };
+
+  const handleSignOut = () => {
+    const form = document.getElementById(
+      "sidebar-signout",
+    ) as HTMLFormElement | null;
+    form?.requestSubmit();
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label="Open account menu"
+        className="rounded-full outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        suppressHydrationWarning
+      >
+        <Avatar size="sm" className="size-7">
+          <AvatarFallback className="text-[10px] font-medium bg-brand/10 text-brand">
+            {initialsFromEmail(email)}
+          </AvatarFallback>
+        </Avatar>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-60 p-1">
+        <div className="flex flex-col gap-0.5 px-2 py-2 border-b">
+          <div className="text-[11px] text-muted-foreground">Signed in as</div>
+          <div className="text-xs font-medium truncate" title={email}>
+            {email}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleToggleTheme}
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+          suppressHydrationWarning
+        >
+          {isDark ? (
+            <Sun className="size-3.5" />
+          ) : (
+            <Moon className="size-3.5" />
+          )}
+          Toggle theme
+        </button>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
+        >
+          <LogOut className="size-3.5" />
+          Sign out
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function Topbar({
   email,
   syncStatus,
@@ -52,6 +131,7 @@ export function Topbar({
 }) {
   const pathname = usePathname();
   const { setOpen } = useCommandPalette();
+  const { setOpen: setAnalystOpen } = useAnalystDrawer();
 
   return (
     <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between border-b bg-background/80 px-5 backdrop-blur-sm">
@@ -62,15 +142,30 @@ export function Topbar({
       </div>
 
       <div className="flex items-center gap-2">
-        <span
+        <Link
+          href="/settings"
           className={cn(
-            "hidden sm:inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground",
+            "hidden sm:inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted/60 transition-colors",
             syncStatus.isStale && "border-warning/40 text-warning",
           )}
           suppressHydrationWarning
         >
           {syncPillLabel(syncStatus)}
-        </span>
+        </Link>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 gap-1.5 px-2 text-muted-foreground font-normal"
+          onClick={() => setAnalystOpen(true)}
+          suppressHydrationWarning
+        >
+          <Sparkles className="size-3.5" />
+          <span className="hidden sm:inline text-xs">Ask analyst</span>
+          <kbd className="hidden sm:inline-flex h-5 items-center rounded border bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+            ⌘J
+          </kbd>
+        </Button>
 
         <Button
           variant="outline"
@@ -86,11 +181,7 @@ export function Topbar({
           </kbd>
         </Button>
 
-        <Avatar size="sm" className="size-7">
-          <AvatarFallback className="text-[10px] font-medium bg-brand/10 text-brand">
-            {initialsFromEmail(email)}
-          </AvatarFallback>
-        </Avatar>
+        <AvatarMenu email={email} />
       </div>
     </header>
   );

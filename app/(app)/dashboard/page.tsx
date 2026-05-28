@@ -1,10 +1,7 @@
 import type { ReactNode } from "react";
 import { KpiTile } from "@/components/dashboard/kpi-tile";
+import { CompoundKpiTile } from "@/components/dashboard/compound-kpi-tile";
 import { ChannelMixCard } from "@/components/dashboard/channel-mix-card";
-import { ChatPanel } from "@/components/chat/chat-panel";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RevenueTrendChart } from "@/components/dashboard/revenue-trend-chart";
-import { PipelineByStateChart } from "@/components/dashboard/pipeline-by-state-chart";
 import { createClient } from "@/lib/supabase/server";
 import { STALE_AFTER } from "@/lib/dashboard/staleness";
 import {
@@ -46,7 +43,7 @@ export default async function DashboardPage() {
   const arBucketLabel = `${formatUsd(arBuckets.current)} curr · ${formatUsd(arBuckets.d30)} 30 · ${formatUsd(arBuckets.d60)} 60 · ${formatUsd(arBuckets.d90 + arBuckets.over90)} 90+`;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+    <div className="grid gap-5">
       <div className="min-w-0 space-y-6">
         <header className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
@@ -170,50 +167,34 @@ export default async function DashboardPage() {
 
         <Section title="Operations" subtitle="POs and active manufacturing">
           <div className="grid gap-3 sm:grid-cols-2">
-            <KpiTile
-              title="POs due / overdue"
-              value={`${formatCount(poPayments.dueNext14Count)} / ${formatCount(poPayments.overdueCount)}`}
-              sub={`${formatUsd(poPayments.dueNext14Amount)} due 14d · ${formatUsd(poPayments.overdueAmount)} overdue`}
+            <CompoundKpiTile
+              title="Purchase orders"
+              primary={{
+                label: "overdue",
+                value: poPayments.overdueCount,
+                tone: "warning",
+              }}
+              secondary={{
+                label: "due next 14d",
+                value: poPayments.dueNext14Count,
+              }}
               hint="Owned · po_payments"
             />
-            <KpiTile
+            <CompoundKpiTile
               title="In production"
-              value={formatCount(production.total)}
-              sub={`${formatCount(production.ordered)} ordered · ${formatCount(production.inProduction)} in production`}
+              primary={{
+                label: "in production",
+                value: production.inProduction,
+              }}
+              secondary={{
+                label: "ordered",
+                value: production.ordered,
+              }}
               hint="Owned · manufacturing_runs"
             />
           </div>
         </Section>
-
-        <Section title="Trends" subtitle="DTC revenue and wholesale pipeline">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-[13px] font-medium text-muted-foreground">
-                  DTC revenue — last 30 days
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-brand pt-0">
-                <RevenueTrendChart data={revenue.points} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-[13px] font-medium text-muted-foreground">
-                  Wholesale pipeline by state
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-brand pt-0">
-                <PipelineByStateChart data={pipeline.byState} />
-              </CardContent>
-            </Card>
-          </div>
-        </Section>
       </div>
-
-      <aside className="min-h-[480px] lg:min-h-0">
-        <ChatPanel />
-      </aside>
     </div>
   );
 }

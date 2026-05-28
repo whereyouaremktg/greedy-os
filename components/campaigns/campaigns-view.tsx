@@ -14,6 +14,7 @@ import type { BoardTaskRow, CampaignRow } from "@/components/campaigns/types";
 import { flattenBoardTasks } from "@/components/campaigns/types";
 import { deleteCampaign } from "@/lib/actions/campaigns";
 import { EmptyState, EmptyStateAction } from "@/components/empty-state";
+import { PageHeader } from "@/components/nav/page-header";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -112,30 +113,23 @@ export function CampaignsView({
   return (
     <>
       <div className="space-y-4">
-        <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 pb-3 backdrop-blur supports-backdrop-filter:bg-background/80">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Campaigns
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Plan launches, promos, and email pushes — with tasks and links
-                to Klaviyo, Canva, Shopify, and HubSpot.
-              </p>
-            </div>
-            <Button className="shrink-0" onClick={() => setCreateOpen(true)}>
+        <PageHeader
+          title="Campaigns"
+          description="Plan launches, promos, and email pushes — with tasks and links to Klaviyo, Canva, Shopify, and HubSpot."
+          actions={
+            <Button onClick={() => setCreateOpen(true)}>
               <Plus />
               New campaign
             </Button>
-          </div>
-
+          }
+        >
           {initialCampaigns.length > 0 ? (
-            <div className="mt-4">
+            <div className="mb-4">
               <CampaignSummary campaigns={initialCampaigns} />
             </div>
           ) : null}
 
-          <Tabs defaultValue="board" className="mt-4 gap-4">
+          <Tabs defaultValue="board" className="gap-4">
             <TabsList>
               <TabsTrigger value="board">Task board</TabsTrigger>
               <TabsTrigger value="list">Campaigns</TabsTrigger>
@@ -181,7 +175,7 @@ export function CampaignsView({
               )}
             </TabsContent>
           </Tabs>
-        </div>
+        </PageHeader>
       </div>
 
       <Sheet open={createSheetOpen} onOpenChange={handleCreateOpenChange}>

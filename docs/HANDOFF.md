@@ -23,28 +23,22 @@
 | Vercel | https://vercel.com/whereyouaremktgs-projects/glow-os |
 | Supabase (canonical) | `pzkjnnhdymlahjxtqjmx` — https://supabase.com/dashboard/project/pzkjnnhdymlahjxtqjmx |
 
-## Phase 0 — done
+## Phases 1–4 — done
 
-Scaffold, schema `0001_phase0_init.sql`, types `types/db.ts`, auth, stub pullers + crons, AI chat via Gateway (`anthropic/claude-opus-4-7`), dashboard shell + chat panel, cloud bootstrap verified.
+| Phase | Scope | Status |
+|-------|-------|--------|
+| 0 | Scaffold, schema `0001_phase0_init.sql`, types `types/db.ts`, auth, stub pullers + crons, AI chat via Gateway (`anthropic/claude-opus-4-7`), dashboard shell + chat panel, cloud bootstrap. | done |
+| 1 | Real UI for owned modules: Vendors, Products, Purchase Orders (board + list + upload + review + detail), PO payments, Manufacturing (board + table + proforma upload + review + run form), Campaigns (task board + table + form + detail), Timeline (horizon + month + agenda). | done |
+| 2a | Shopify Admin API puller; `shopify_metrics` upserts; dashboard tile + sparkline live. | done |
+| 2b | QuickBooks OAuth + puller; `qb_financials` upserts; cash / AR aging / revenue / channel mix tiles live. | done |
+| 3 | Dashboard KPIs with `synced_at` + stale badges, animated values, sparklines, channel mix card and stacked revenue chart. | done |
+| 4 | Slack identity mapping + alerts (shipped out of order, ahead of the original plan). | done |
 
-## Recommended build order
+## Current state
 
-1. **Phase 1 — Real UI (owned modules)**  
-   Vendors → POs → PO payments → Manufacturing → Campaigns  
-   Pattern: server pages + `lib/actions/*` + shadcn Form/zod + Table/Sheet.
-
-2. **Phase 2a — Shopify** (first connector)  
-   Replace `lib/pullers/shopify.ts` with Admin API; env: `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_ADMIN_ACCESS_TOKEN`.  
-   Upsert `shopify_metrics`; verify cron + dashboard tile.
-
-3. **Phase 2b — QuickBooks** (second connector)  
-   OAuth env vars in `.env.example`; replace `lib/pullers/quickbooks.ts`; upsert `qb_financials`.
-
-4. **Phase 3 — Dashboard KPIs**  
-   Real tiles: cash, AR aging, revenue, Shopify revenue/AOV, wholesale pipeline (HubSpot still stub until later), PO overdue, manufacturing stages.  
-   `synced_at` + stale badges; add Recharts when charting.
-
-5. **Later:** Klaviyo, HubSpot pullers; Phase 4 Slack.
+- **Phase 5 — Polish & expand.** Focus is UI/UX consistency: shared `<PageHeader>` shell, sidebar attention counters, global analyst drawer, dashboard signal cleanup, and skeleton/route-loading parity.
+- **Open connector work:** HubSpot is still a stub puller — engineering work, not UI. Klaviyo remains stubbed beyond what the analyst chat reads.
+- **Out of scope for now:** mobile nav, per-tile click-through detail drawers, sidebar counter realtime refresh.
 
 ## Hard rules
 

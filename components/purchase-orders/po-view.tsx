@@ -14,6 +14,7 @@ import { PoReviewDialog } from "@/components/purchase-orders/po-review-dialog";
 import { PoUploadDropzone } from "@/components/purchase-orders/po-upload";
 import type { PoRow } from "@/components/purchase-orders/types";
 import { EmptyState, EmptyStateAction } from "@/components/empty-state";
+import { PageHeader } from "@/components/nav/page-header";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -108,23 +109,17 @@ export function PoView({
   return (
     <>
       <div className="space-y-4">
-        <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 pb-3 backdrop-blur supports-backdrop-filter:bg-background/80">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Purchase Orders
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Wholesale buyer POs — track fulfillment, shipment, and payment.
-              </p>
-            </div>
-            <Button className="shrink-0" onClick={() => setUploadOpen(true)}>
+        <PageHeader
+          title="Purchase Orders"
+          description="Wholesale buyer POs — track fulfillment, shipment, and payment."
+          actions={
+            <Button onClick={() => setUploadOpen(true)}>
               <FileUp />
               Upload PO
             </Button>
-          </div>
-
-          <Tabs defaultValue="board" className="mt-4 gap-4">
+          }
+        >
+          <Tabs defaultValue="board" className="gap-4">
             <TabsList>
               <TabsTrigger value="board">Board</TabsTrigger>
               <TabsTrigger value="list">List</TabsTrigger>
@@ -151,7 +146,7 @@ export function PoView({
               )}
             </TabsContent>
           </Tabs>
-        </div>
+        </PageHeader>
       </div>
 
       <Sheet open={uploadSheetOpen} onOpenChange={handleUploadOpenChange}>

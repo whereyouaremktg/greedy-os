@@ -24,7 +24,9 @@ import {
   FileUp,
   Settings,
   CalendarRange,
+  Sparkles,
 } from "lucide-react";
+import { useAnalystDrawerOptional } from "@/components/chat/analyst-drawer";
 import {
   CommandDialog,
   CommandEmpty,
@@ -68,6 +70,7 @@ function CommandPaletteDialog() {
   const { open, setOpen } = useCommandPalette();
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
+  const analystDrawer = useAnalystDrawerOptional();
 
   const run = useCallback(
     (fn: () => void) => {
@@ -138,6 +141,16 @@ function CommandPaletteDialog() {
             <Plus className="size-4 text-muted-foreground" />
             Create campaign
           </CommandItem>
+          {analystDrawer ? (
+            <CommandItem
+              value="Ask analyst"
+              onSelect={() => run(() => analystDrawer.setOpen(true))}
+            >
+              <Sparkles className="size-4 text-muted-foreground" />
+              Ask analyst
+              <CommandShortcut>⌘J</CommandShortcut>
+            </CommandItem>
+          ) : null}
           <CommandItem
             value="Toggle theme"
             onSelect={() =>

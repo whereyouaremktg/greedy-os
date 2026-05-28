@@ -2,6 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/db";
 import { STALE_AFTER } from "@/lib/dashboard/staleness";
 import { formatRelativeTime } from "@/lib/format";
+import {
+  getInProductionCount,
+  getPoPaymentsStatus,
+} from "@/lib/dashboard/metrics";
+import { fetchTimelineEvents } from "@/lib/timeline/fetch";
 
 type DB = SupabaseClient<Database>;
 
@@ -88,4 +93,43 @@ export async function getGlobalSyncStatus(supabase: DB): Promise<GlobalSyncStatu
     : "Awaiting first sync";
 
   return { latestSyncedAt: latest, isStale, label };
+}
+
+export type NavCounter = { count: number; tone: "warning" | "neutral" } | null;
+export type NavCounters = {
+  purchaseOrders: NavCounter;
+  manufacturing: NavCounter;
+  timeline: NavCounter;
+  campaigns: NavCounter;
+};
+
+function toNavCounter(
+  count: number,
+  tone: "warning" | "neutral",
+): NavCounter {
+  if (!Number.isFinite(count) || count <= 0) return null;
+  return { count, tone };
+}
+
+export async function getNavCounters(supabase: DB): Promise<NavCounters> {
+  const [poPayments, production, timeline, campaignTasks] = await Promise.all([
+    getPoPaymentsStatus(supabase),
+    getInProductionCount(supabase),
+    fetchTimelineEvents(supabase),
+    supabase
+      .from("campaign_tasks")
+      .select("status", { count: "exact", head: true })
+      .not("status", "in", '("done")'),
+  ]);
+
+  const timelineOverdue = (timeline.events ?? []).filter(
+    (e) => e.urgency === "overdue",
+  ).length;
+
+  return {
+    purchaseOrders: toNavCounter(poPayments.overdueCount, "warning"),
+    manufacturing: toNavCounter(production.total, "neutral"),
+    timeline: toNavCounter(timelineOverdue, "warning"),
+    campaigns: toNavCounter(campaignTasks.count ?? 0, "neutral"),
+  };
 }

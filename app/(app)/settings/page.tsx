@@ -7,6 +7,7 @@ import { ConnectorCard } from "@/components/settings/connector-card";
 import { QuickbooksCard } from "@/components/settings/quickbooks-card";
 import { QbResultToast } from "@/components/settings/qb-result-toast";
 import { SlackIdentitiesCard } from "@/components/settings/slack-identities-card";
+import { PageHeader } from "@/components/nav/page-header";
 import { loadSlackIdentitiesSettings } from "@/lib/settings/slack-identities-data";
 
 export const dynamic = "force-dynamic";
@@ -29,15 +30,10 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <QbResultToast />
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Connect your data sources. Pasted keys are stored in Supabase
-          (server-only) and used by the cron pullers. Values set via Vercel
-          environment variables also keep working — anything pasted here
-          overrides them.
-        </p>
-      </header>
+      <PageHeader
+        title="Settings"
+        description="Connect your data sources. Pasted keys are stored in Supabase (server-only) and used by the cron pullers. Values set via Vercel environment variables also keep working — anything pasted here overrides them."
+      />
 
       <SlackIdentitiesCard
         rows={slackIdentities.rows}

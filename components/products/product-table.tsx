@@ -37,6 +37,7 @@ import {
   updateProduct,
 } from "@/lib/actions/products";
 import { EmptyState, EmptyStateAction } from "@/components/empty-state";
+import { PageHeader } from "@/components/nav/page-header";
 import { RelativeTime } from "@/components/relative-time";
 import { cn } from "@/lib/utils";
 
@@ -141,28 +142,26 @@ export function ProductTable({
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Products</h1>
-          <p className="text-sm text-muted-foreground">
-            Canonical product catalog for manufacturing and ops.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={handleSync}
-            disabled={syncPending}
-          >
-            <RefreshCw className={cn(syncPending && "animate-spin")} />
-            Sync from Shopify
-          </Button>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus />
-            New product
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Products"
+        description="Canonical product catalog for manufacturing and ops."
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleSync}
+              disabled={syncPending}
+            >
+              <RefreshCw className={cn(syncPending && "animate-spin")} />
+              Sync from Shopify
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus />
+              New product
+            </Button>
+          </div>
+        }
+      />
 
       <div className="rounded-md border">
         {products.length === 0 ? (
