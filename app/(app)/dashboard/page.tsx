@@ -12,6 +12,7 @@ import {
   getEmailAffiliateRevenue,
   getInProductionCount,
   getPoPaymentsStatus,
+  getPoWholesaleRevenue,
   getRevenueByChannel,
   getRevenueTrend,
   getWholesalePipeline,
@@ -28,6 +29,7 @@ export default async function DashboardPage() {
     poPayments,
     production,
     channels,
+    poWholesale,
   ] = await Promise.all([
     getCashSnapshot(supabase),
     getArAging(supabase),
@@ -37,10 +39,15 @@ export default async function DashboardPage() {
     getPoPaymentsStatus(supabase),
     getInProductionCount(supabase),
     getRevenueByChannel(supabase),
+    getPoWholesaleRevenue(supabase),
   ]);
 
   const arBuckets = ar.buckets;
   const arBucketLabel = `${formatUsd(arBuckets.current)} curr · ${formatUsd(arBuckets.d30)} 30 · ${formatUsd(arBuckets.d60)} 60 · ${formatUsd(arBuckets.d90 + arBuckets.over90)} 90+`;
+
+  // Total wholesale = Shopify B2B (tagged orders) + fulfilled customer POs.
+  const totalWholesaleRevenue =
+    revenue.shopifyWholesaleRevenue + poWholesale.total;
 
   return (
     <div className="grid gap-5">
@@ -75,29 +82,25 @@ export default async function DashboardPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <KpiTile
               title="DTC revenue (Shopify, 30d)"
-              rawValue={revenue.totalRevenue}
+              rawValue={revenue.dtcRevenue}
               format="usd"
-              sub={`${formatCount(revenue.totalOrders)} orders`}
+              sub={`${formatCount(revenue.dtcOrders)} orders · excl. B2B`}
               hint="Shopify · pulled every 2h"
               syncedAt={revenue.syncedAt}
               staleAfterMs={STALE_AFTER.shopify}
-              trend={revenue.revenueTrend}
-              delta={revenue.revenueDelta}
+              trend={revenue.dtcTrend}
+              delta={revenue.dtcDelta}
             />
             <KpiTile
-              title="Wholesale revenue (QB, 30d)"
-              rawValue={channels.hasData ? channels.totalWholesale : null}
+              title="Total wholesale revenue (30d)"
+              rawValue={totalWholesaleRevenue}
               format="usd"
-              sub={
-                channels.hasData
-                  ? `${(channels.wholesaleShare * 100).toFixed(0)}% of channel mix`
-                  : "Awaiting QuickBooks class sync"
-              }
-              hint="QuickBooks · classes mapped to wholesale"
-              syncedAt={channels.syncedAt}
-              staleAfterMs={STALE_AFTER.qb}
-              trend={channels.wholesaleTrend}
-              delta={channels.wholesaleDelta}
+              sub={`${formatUsd(revenue.shopifyWholesaleRevenue)} Shopify B2B · ${formatUsd(poWholesale.total)} POs`}
+              hint="Shopify B2B tags + customer POs"
+              syncedAt={revenue.syncedAt}
+              staleAfterMs={STALE_AFTER.shopify}
+              trend={poWholesale.trend}
+              delta={poWholesale.delta}
             />
             <KpiTile
               title="AOV"
@@ -113,7 +116,22 @@ export default async function DashboardPage() {
             />
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <KpiTile
+              title="Wholesale revenue (QB, 30d)"
+              rawValue={channels.hasData ? channels.totalWholesale : null}
+              format="usd"
+              sub={
+                channels.hasData
+                  ? `${(channels.wholesaleShare * 100).toFixed(0)}% of channel mix`
+                  : "Awaiting QuickBooks class sync"
+              }
+              hint="QuickBooks · classes mapped to wholesale"
+              syncedAt={channels.syncedAt}
+              staleAfterMs={STALE_AFTER.qb}
+              trend={channels.wholesaleTrend}
+              delta={channels.wholesaleDelta}
+            />
             <KpiTile
               title="Email + affiliate revenue"
               rawValue={email.total}

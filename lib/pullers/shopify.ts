@@ -24,6 +24,7 @@ const ORDERS_QUERY = /* GraphQL */ `
       nodes {
         id
         createdAt
+        tags
         subtotalPriceSet {
           shopMoney {
             amount
@@ -61,6 +62,7 @@ type LineItemNode = {
 type OrderNode = {
   id: string;
   createdAt: string;
+  tags: string[];
   subtotalPriceSet: { shopMoney: ShopMoney } | null;
   lineItems: {
     pageInfo: { hasNextPage: boolean };
@@ -92,10 +94,20 @@ type TopProduct = {
   units: number;
 };
 
+// An order is wholesale (B2B) if any of its tags matches B2B / Wholesale.
+const WHOLESALE_TAG_RE = /\b(b2b|wholesale)\b/i;
+
+function isWholesaleOrder(tags: string[] | null | undefined): boolean {
+  return (tags ?? []).some((t) => WHOLESALE_TAG_RE.test(t));
+}
+
 type ShopifyMetricsRow = {
   as_of_date: string;
   revenue: number;
   order_count: number;
+  dtc_revenue: number;
+  wholesale_revenue: number;
+  wholesale_order_count: number;
   aov: number;
   top_products: TopProduct[];
   synced_at: string;
@@ -186,6 +198,9 @@ async function aggregateDay(
 ): Promise<{
   revenue: number;
   orderCount: number;
+  dtcRevenue: number;
+  wholesaleRevenue: number;
+  wholesaleOrderCount: number;
   topProducts: TopProduct[];
 }> {
   const queryStr = `created_at:>='${dayStart.toISOString()}' created_at:<'${dayEnd.toISOString()}'`;
@@ -193,6 +208,8 @@ async function aggregateDay(
   let cursor: string | null = null;
   let revenue = 0;
   let orderCount = 0;
+  let wholesaleRevenue = 0;
+  let wholesaleOrderCount = 0;
   const productTotals = new Map<string, TopProduct>();
 
   while (true) {
@@ -207,8 +224,14 @@ async function aggregateDay(
       const subtotal = parseFloat(
         order.subtotalPriceSet?.shopMoney?.amount ?? "0",
       );
-      if (Number.isFinite(subtotal)) revenue += subtotal;
+      const safeSubtotal = Number.isFinite(subtotal) ? subtotal : 0;
+      revenue += safeSubtotal;
       orderCount += 1;
+
+      if (isWholesaleOrder(order.tags)) {
+        wholesaleRevenue += safeSubtotal;
+        wholesaleOrderCount += 1;
+      }
 
       for (const li of order.lineItems?.nodes ?? []) {
         const sku = li.sku?.trim() || null;
@@ -252,7 +275,14 @@ async function aggregateDay(
       units: p.units,
     }));
 
-  return { revenue, orderCount, topProducts };
+  return {
+    revenue,
+    orderCount,
+    dtcRevenue: revenue - wholesaleRevenue,
+    wholesaleRevenue,
+    wholesaleOrderCount,
+    topProducts,
+  };
 }
 
 export async function runShopifyPull(): Promise<{ ok: true; rows: number }> {
@@ -282,11 +312,14 @@ export async function runShopifyPull(): Promise<{ ok: true; rows: number }> {
     const dayEnd = new Date(dayStart);
     dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
 
-    const { revenue, orderCount, topProducts } = await aggregateDay(
-      client,
-      dayStart,
-      dayEnd,
-    );
+    const {
+      revenue,
+      orderCount,
+      dtcRevenue,
+      wholesaleRevenue,
+      wholesaleOrderCount,
+      topProducts,
+    } = await aggregateDay(client, dayStart, dayEnd);
 
     const roundedRevenue = round2(revenue);
     const aov = orderCount > 0 ? round2(roundedRevenue / orderCount) : 0;
@@ -295,6 +328,9 @@ export async function runShopifyPull(): Promise<{ ok: true; rows: number }> {
       as_of_date: isoDate(dayStart),
       revenue: roundedRevenue,
       order_count: orderCount,
+      dtc_revenue: round2(dtcRevenue),
+      wholesale_revenue: round2(wholesaleRevenue),
+      wholesale_order_count: wholesaleOrderCount,
       aov,
       top_products: topProducts,
       synced_at: syncedAt,

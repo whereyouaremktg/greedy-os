@@ -122,12 +122,18 @@ export type RevenueTrendPoint = {
 
 export type RevenueTrend = {
   points: RevenueTrendPoint[]; // oldest → newest
-  totalRevenue: number;
+  totalRevenue: number; // grand total (DTC + Shopify wholesale)
   totalOrders: number;
+  // DTC = Shopify orders not tagged B2B/Wholesale.
+  dtcRevenue: number;
+  dtcOrders: number;
+  // Shopify B2B = orders tagged B2B/Wholesale.
+  shopifyWholesaleRevenue: number;
+  shopifyWholesaleOrders: number;
   aov: number | null;
   syncedAt: string | null;
-  revenueTrend?: number[];
-  revenueDelta?: MetricDelta;
+  dtcTrend?: number[];
+  dtcDelta?: MetricDelta;
   aovTrend?: number[];
   aovDelta?: MetricDelta;
 };
@@ -135,22 +141,40 @@ export type RevenueTrend = {
 export async function getRevenueTrend(supabase: DB): Promise<RevenueTrend> {
   const { data } = await supabase
     .from("shopify_metrics")
-    .select("as_of_date, revenue, order_count, synced_at")
+    .select(
+      "as_of_date, revenue, order_count, dtc_revenue, wholesale_revenue, wholesale_order_count, synced_at",
+    )
     .order("as_of_date", { ascending: false })
     .limit(30);
 
   const rows = data ?? [];
   const totalRevenue = rows.reduce((sum, r) => sum + (r.revenue ?? 0), 0);
   const totalOrders = rows.reduce((sum, r) => sum + (r.order_count ?? 0), 0);
-  const points: RevenueTrendPoint[] = [...rows]
-    .reverse()
-    .map((r) => ({
-      date: r.as_of_date,
-      revenue: r.revenue ?? 0,
-      orderCount: r.order_count ?? 0,
-    }));
+  const shopifyWholesaleRevenue = rows.reduce(
+    (sum, r) => sum + (r.wholesale_revenue ?? 0),
+    0,
+  );
+  const shopifyWholesaleOrders = rows.reduce(
+    (sum, r) => sum + (r.wholesale_order_count ?? 0),
+    0,
+  );
 
-  const revenueTrend = lastN(points.map((p) => p.revenue));
+  // Rows synced before the channel-split migration have a null dtc_revenue;
+  // fall back to treating the whole day's revenue as DTC.
+  const dtcOf = (r: { revenue: number | null; dtc_revenue: number | null }) =>
+    r.dtc_revenue ?? r.revenue ?? 0;
+
+  const dtcRevenue = rows.reduce((sum, r) => sum + dtcOf(r), 0);
+  const dtcOrders = totalOrders - shopifyWholesaleOrders;
+
+  const points: RevenueTrendPoint[] = [...rows].reverse().map((r) => ({
+    date: r.as_of_date,
+    revenue: r.revenue ?? 0,
+    orderCount: r.order_count ?? 0,
+  }));
+
+  const orderedRows = [...rows].reverse();
+  const dtcTrend = lastN(orderedRows.map((r) => dtcOf(r)));
   const aovTrend = lastN(
     points.map((p) => (p.orderCount > 0 ? p.revenue / p.orderCount : 0)),
   );
@@ -159,12 +183,56 @@ export async function getRevenueTrend(supabase: DB): Promise<RevenueTrend> {
     points,
     totalRevenue,
     totalOrders,
+    dtcRevenue,
+    dtcOrders,
+    shopifyWholesaleRevenue,
+    shopifyWholesaleOrders,
     aov: totalOrders > 0 ? totalRevenue / totalOrders : null,
     syncedAt: rows[0]?.synced_at ?? null,
-    revenueTrend: revenueTrend.length > 1 ? revenueTrend : undefined,
-    revenueDelta: deltaFromSeries(revenueTrend, "vs prior 7d"),
+    dtcTrend: dtcTrend.length > 1 ? dtcTrend : undefined,
+    dtcDelta: deltaFromSeries(dtcTrend, "vs prior 7d"),
     aovTrend: aovTrend.length > 1 ? aovTrend : undefined,
     aovDelta: deltaFromSeries(aovTrend, "vs prior 7d"),
+  };
+}
+
+export type PoWholesaleRevenue = {
+  total: number;
+  orderCount: number;
+  trend?: number[];
+  delta?: MetricDelta;
+};
+
+// Wholesale revenue from fulfilled customer POs (purchase_orders), counted on
+// order_date over the trailing 30 days. Drafts and cancellations don't count.
+const PO_REVENUE_EXCLUDED_STATUSES = ["draft", "cancelled"] as const;
+
+export async function getPoWholesaleRevenue(
+  supabase: DB,
+): Promise<PoWholesaleRevenue> {
+  const since = lastNDates(30)[0];
+  const { data } = await supabase
+    .from("purchase_orders")
+    .select("total, order_date, status")
+    .gte("order_date", since)
+    .not("status", "in", `(${PO_REVENUE_EXCLUDED_STATUSES.join(",")})`);
+
+  const rows = data ?? [];
+  const total = rows.reduce((sum, r) => sum + (r.total ?? 0), 0);
+
+  const dates = lastNDates(TREND_DAYS);
+  const trend = dates.map((date) =>
+    rows.reduce(
+      (sum, r) => (r.order_date === date ? sum + (r.total ?? 0) : sum),
+      0,
+    ),
+  );
+
+  return {
+    total,
+    orderCount: rows.length,
+    trend: trend.some((v) => v > 0) ? trend : undefined,
+    delta: deltaFromSeries(trend, "vs prior 7d"),
   };
 }
 
