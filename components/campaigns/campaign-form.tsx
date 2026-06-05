@@ -6,12 +6,11 @@ import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
 import { toast } from "sonner";
 
 import type { CampaignRow } from "@/components/campaigns/types";
+import { createCampaign, updateCampaign } from "@/lib/actions/campaigns";
 import {
-  createCampaign,
-  updateCampaign,
   campaignSchema,
   type CampaignFormValues,
-} from "@/lib/actions/campaigns";
+} from "@/lib/campaigns/form-schema";
 import {
   CAMPAIGN_STATUSES,
   CAMPAIGN_STATUS_LABELS,

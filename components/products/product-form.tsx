@@ -20,13 +20,12 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { createProduct, updateProduct } from "@/lib/actions/products";
 import {
-  createProduct,
-  updateProduct,
   productSchema,
   PRODUCT_CATEGORIES,
   type ProductFormValues,
-} from "@/lib/actions/products";
+} from "@/lib/products/form-schema";
 
 type Product = {
   id: string;

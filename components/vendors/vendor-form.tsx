@@ -16,12 +16,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import {
-  createVendor,
-  updateVendor,
-  vendorSchema,
-  type VendorFormValues,
-} from "@/lib/actions/vendors"
+import { createVendor, updateVendor } from "@/lib/actions/vendors"
+import { vendorSchema, type VendorFormValues } from "@/lib/vendors/form-schema"
 
 type Vendor = {
   id: string

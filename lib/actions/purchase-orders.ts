@@ -18,7 +18,6 @@ import {
   type CreatePurchaseOrderInput,
 } from "@/lib/purchase-orders/schema";
 import type { PoStatus } from "@/lib/purchase-orders/statuses";
-import { PO_BOARD_STATUSES } from "@/lib/purchase-orders/statuses";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult<T = void> =
@@ -181,5 +180,3 @@ export async function updatePoShipment(
 
   return { ok: true, data: result.data };
 }
-
-export { PO_BOARD_STATUSES };
