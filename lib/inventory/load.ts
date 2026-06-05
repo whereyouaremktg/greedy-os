@@ -255,9 +255,21 @@ async function loadForecastInputsFromDb(
     incomingBySku.set(sku, arr);
   }
 
-  // --- Assemble one ForecastInput per SKU in the demand universe. ------------
+  // --- Assemble one ForecastInput per SKU. -----------------------------------
+  // Universe = the UNION of SKUs we have demand for (sku_sales_history), stock
+  // for (Retroship/Shopify on-hand), or incoming supply for. This way the
+  // inventory view shows current stock immediately even before sales history is
+  // populated — SKUs with no history just come back as "insufficient_data" from
+  // the engine (on-hand still rendered), rather than the page being blank.
+  const universe = new Set<string>([
+    ...historyBySku.keys(),
+    ...retroshipOnHand.keys(),
+    ...shopifyOnHand.keys(),
+    ...incomingBySku.keys(),
+  ]);
+
   const inputs: ForecastInput[] = [];
-  for (const [sku, history] of historyBySku) {
+  for (const sku of universe) {
     const productTitle =
       titleFromSales.get(sku) ??
       titleFromShopify.get(sku) ??
@@ -268,7 +280,7 @@ async function loadForecastInputsFromDb(
       productTitle,
       onHand: onHandForSku(sku),
       incoming: incomingBySku.get(sku) ?? [],
-      history,
+      history: historyBySku.get(sku) ?? [],
       leadTimeDays: leadTimeForSku(sku),
     });
   }
