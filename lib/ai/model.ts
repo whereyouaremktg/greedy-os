@@ -22,10 +22,11 @@ const DEFAULT_GLOW_MODEL = "anthropic/claude-sonnet-4.6";
 // Daily morning digest — synthesis/writing, low volume.
 const DEFAULT_DIGEST_MODEL = "anthropic/claude-sonnet-4.6";
 
-// Document parsing (PO/proforma vision + PDF text). Pro reads messy/scanned
-// wholesale POs noticeably better than Flash, and parsing is low-volume, so the
-// accuracy is worth the cost. Override with GLOW_PARSE_MODEL to drop to Flash.
-const DEFAULT_PARSE_MODEL = "google/gemini-2.5-pro";
+// Document parsing (PO/proforma vision + PDF text). Flash, not Pro: Pro is
+// quota-limited (429s) on the current Google key, and reliability on the upload
+// path matters more than marginal accuracy. The improved parse prompt does the
+// heavy lifting. Override with GLOW_PARSE_MODEL if Pro quota is raised.
+const DEFAULT_PARSE_MODEL = "google/gemini-2.5-flash";
 
 export const GLOW_MODEL =
   process.env.GLOW_AI_MODEL?.trim() || DEFAULT_GLOW_MODEL;
