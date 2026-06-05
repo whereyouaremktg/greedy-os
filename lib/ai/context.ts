@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { forecastAll } from "@/lib/inventory/forecast";
+import { loadForecastInputs } from "@/lib/inventory/load";
+import { summarizeForecastForContext } from "@/lib/inventory/narrate";
+
 // Assembles a compact data context for the Glow OS analyst.
 // Reads via the cookie-bound server client → respects RLS, so the user only
 // sees what their session permits.
@@ -67,8 +71,32 @@ export async function buildGlowContext(supabase: SupabaseClient) {
     supabase.from("hubspot_deals").select("*").limit(100),
   ]);
 
+  // Compact, deterministic forecast summary (order_now / order_soon, plus any
+  // demand_down). Wrapped so a forecast hiccup never breaks the analyst.
+  let inventoryForecast: string;
+  try {
+    const inputs = await loadForecastInputs();
+    const forecasts = forecastAll(inputs, { asOf: new Date() });
+    const demandDown = forecasts
+      .filter((f) => f.status === "demand_down")
+      .map(
+        (f) =>
+          `- ${f.sku} (${f.productTitle}) [demand down]: run rate softening` +
+          (f.yoyGrowth != null
+            ? `, YoY ${(f.yoyGrowth * 100).toFixed(1)}%`
+            : ""),
+      );
+    inventoryForecast = summarizeForecastForContext(forecasts);
+    if (demandDown.length > 0) {
+      inventoryForecast += `\nDemand softening:\n${demandDown.join("\n")}`;
+    }
+  } catch {
+    inventoryForecast = "Inventory forecast: temporarily unavailable.";
+  }
+
   return {
     generated_at: new Date().toISOString(),
+    inventoryForecast,
     owned: {
       vendors: vendors.data ?? [],
       products: products.data ?? [],

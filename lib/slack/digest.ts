@@ -55,6 +55,31 @@ export type DigestStockItem = {
   quantity: number;
 };
 
+// Reorder section — every number here comes from the deterministic forecast
+// (lib/inventory/forecast). `note` is optional model narration, not a source
+// of truth.
+export type DigestReorderItem = {
+  sku: string;
+  productTitle: string;
+  status: "order_now" | "order_soon";
+  onHand: number;
+  orderByDate: string | null;
+  reorderQty: number;
+  note: string | null;
+};
+
+export type DigestDemandDownItem = {
+  sku: string;
+  productTitle: string;
+  yoyGrowth: number | null; // fraction; -0.30 = down 30%
+  note: string | null;
+};
+
+export type DigestReorder = {
+  orderItems: DigestReorderItem[];
+  demandDown: DigestDemandDownItem[];
+};
+
 const URGENCY_EMOJI: Record<DigestBullet["urgency"], string> = {
   alert: "🔴",
   warn: "🟡",
@@ -90,6 +115,33 @@ function stockLines(items: DigestStockItem[]): string {
     .join("\n");
 }
 
+function reorderLines(items: DigestReorderItem[]): string {
+  return items
+    .map((it) => {
+      const emoji = it.status === "order_now" ? "🔴" : "🟡";
+      const label = it.status === "order_now" ? "ORDER NOW" : "order soon";
+      const orderBy = it.orderByDate
+        ? ` · order by *${it.orderByDate}*`
+        : "";
+      const head = `${emoji} *${it.productTitle}* (${it.sku}) — ${label}: reorder *${formatCount(it.reorderQty)}* units${orderBy} · ${formatCount(it.onHand)} on-hand`;
+      return it.note ? `${head}\n    _${it.note}_` : head;
+    })
+    .join("\n");
+}
+
+function demandDownLines(items: DigestDemandDownItem[]): string {
+  return items
+    .map((it) => {
+      const pct =
+        it.yoyGrowth == null
+          ? ""
+          : ` (${(it.yoyGrowth * 100).toFixed(0)}% YoY)`;
+      const head = `📉 *${it.productTitle}* (${it.sku}) — demand down${pct}`;
+      return it.note ? `${head}\n    _${it.note}_` : head;
+    })
+    .join("\n");
+}
+
 export function digestBlocks(input: {
   heading: string;
   dateLabel: string;
@@ -97,8 +149,9 @@ export function digestBlocks(input: {
   sales: DigestSales | null;
   cash: DigestCash | null;
   stock: DigestStockItem[];
+  reorder?: DigestReorder;
 }): Block[] {
-  const { heading, dateLabel, narrative, sales, cash, stock } = input;
+  const { heading, dateLabel, narrative, sales, cash, stock, reorder } = input;
 
   const out: Block[] = [
     headerBlock(heading),
@@ -179,6 +232,26 @@ export function digestBlocks(input: {
     out.push(
       sectionBlock(
         `*📦 Stock alerts*  <${glowUrl("/products")}|view>\n${stockLines(stock)}`,
+      ),
+      dividerBlock(),
+    );
+  }
+
+  // Inventory / reorder — deterministic forecast: order_now / order_soon SKUs
+  // with computed order-by date + reorder qty, plus demand-down flags.
+  if (reorder && (reorder.orderItems.length > 0 || reorder.demandDown.length > 0)) {
+    const parts: string[] = [];
+    if (reorder.orderItems.length > 0) {
+      parts.push(reorderLines(reorder.orderItems));
+    } else {
+      parts.push("_No SKUs need ordering this week._");
+    }
+    if (reorder.demandDown.length > 0) {
+      parts.push(`*Demand down*\n${demandDownLines(reorder.demandDown)}`);
+    }
+    out.push(
+      sectionBlock(
+        `*📥 Inventory / reorder*  <${glowUrl("/inventory")}|view>\n${parts.join("\n\n")}`,
       ),
       dividerBlock(),
     );

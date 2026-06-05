@@ -725,6 +725,33 @@ export type Database = {
         }
         Relationships: []
       }
+      sku_sales_history: {
+        Row: {
+          sku: string
+          month: string
+          product_title: string | null
+          units_sold: number
+          net_sales: number | null
+          synced_at: string
+        }
+        Insert: {
+          sku: string
+          month: string
+          product_title?: string | null
+          units_sold?: number
+          net_sales?: number | null
+          synced_at?: string
+        }
+        Update: {
+          sku?: string
+          month?: string
+          product_title?: string | null
+          units_sold?: number
+          net_sales?: number | null
+          synced_at?: string
+        }
+        Relationships: []
+      }
       slack_identities: {
         Row: {
           email: string | null

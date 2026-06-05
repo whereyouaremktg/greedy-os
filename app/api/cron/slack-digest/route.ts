@@ -6,10 +6,14 @@ import { buildGlowContext } from "@/lib/ai/context";
 import { GLOW_DIGEST_MODEL } from "@/lib/ai/model";
 import { GLOW_DIGEST_PROMPT } from "@/lib/ai/prompt";
 import { runCronJob, verifyCronSecret } from "@/lib/cron-auth";
+import { forecastAll } from "@/lib/inventory/forecast";
+import { loadForecastInputsService } from "@/lib/inventory/load";
+import { narrateForecast } from "@/lib/inventory/narrate";
 import { getSlackDefaultChannel } from "@/lib/slack/client";
 import {
   digestBlocks,
   type DigestCash,
+  type DigestReorder,
   type DigestSales,
   type DigestStockItem,
 } from "@/lib/slack/digest";
@@ -119,6 +123,38 @@ export async function GET(request: Request) {
       quantity: r.inventory_quantity,
     }));
 
+    // --- Deterministic inventory forecast (numbers) + narration (prose) ---
+    // forecastAll is authoritative for every quantity/date; the model only
+    // rephrases. Reads via the service client since the cron has no cookies.
+    const forecastInputs = await loadForecastInputsService();
+    const forecasts = forecastAll(forecastInputs, { asOf: new Date() });
+
+    const narrationBySku = new Map(
+      (await narrateForecast(forecasts)).callouts.map((c) => [c.sku, c]),
+    );
+
+    const reorder: DigestReorder = {
+      orderItems: forecasts
+        .filter((f) => f.status === "order_now" || f.status === "order_soon")
+        .map((f) => ({
+          sku: f.sku,
+          productTitle: f.productTitle,
+          status: f.status as "order_now" | "order_soon",
+          onHand: f.onHand,
+          orderByDate: f.orderByDate,
+          reorderQty: f.reorderQty,
+          note: narrationBySku.get(f.sku)?.text ?? null,
+        })),
+      demandDown: forecasts
+        .filter((f) => f.status === "demand_down")
+        .map((f) => ({
+          sku: f.sku,
+          productTitle: f.productTitle,
+          yoyGrowth: f.yoyGrowth,
+          note: narrationBySku.get(f.sku)?.text ?? null,
+        })),
+    };
+
     // --- Model narrative (headline + PO/manufacturing bullets) ---
     const context = await buildGlowContext(supabase);
     const { object: narrative } = await generateObject({
@@ -135,6 +171,7 @@ export async function GET(request: Request) {
       sales,
       cash,
       stock,
+      reorder,
     });
 
     const send = await sendSlack({

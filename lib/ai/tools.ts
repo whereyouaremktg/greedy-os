@@ -30,6 +30,8 @@ import {
   CAMPAIGN_TASK_STATUSES,
   CAMPAIGN_TYPES,
 } from "@/lib/campaigns/types";
+import { forecastAll } from "@/lib/inventory/forecast";
+import { loadForecastInputs } from "@/lib/inventory/load";
 import { findOrCreateVendorByName } from "@/lib/vendors/lookup";
 import { createVendorCore, createVendorInput } from "@/lib/vendors/core";
 import type { ManufacturingStage } from "@/lib/manufacturing/stages";
@@ -251,6 +253,76 @@ export function makeGlowTools(ctx: GlowToolCtx) {
               products,
               count: products.length,
               nearestMatches: Boolean(nameContains?.trim() && products.length > 0),
+            },
+          };
+        }),
+    }),
+
+    inventoryForecast: tool({
+      description:
+        "Compute the growth-aware inventory forecast (per-SKU run-out / order-by date / reorder qty / months of cover / YoY growth / status). Use when the user asks when to reorder a product, what's about to stock out, or how much to order — e.g. 'when do I need to reorder Ballerina Pink?'. Optionally pass sku to focus one product (matches by SKU or fuzzy product title). The returned numbers are authoritative — cite them, never invent.",
+      inputSchema: z.object({
+        sku: z
+          .string()
+          .optional()
+          .describe(
+            "Optional SKU or product name to focus on. Matches by exact SKU, then fuzzy product title.",
+          ),
+      }),
+      execute: async ({ sku }) =>
+        runTool(async () => {
+          const inputs = await loadForecastInputs();
+          const forecasts = forecastAll(inputs, { asOf: new Date() });
+
+          if (!sku?.trim()) {
+            return {
+              ok: true,
+              data: {
+                forecasts,
+                count: forecasts.length,
+                nearestMatches: false,
+              },
+            };
+          }
+
+          const query = sku.trim();
+          const lower = query.toLowerCase();
+
+          const exact = forecasts.filter(
+            (f) => f.sku.toLowerCase() === lower,
+          );
+          let matches = exact;
+
+          if (matches.length === 0) {
+            const direct = forecasts.filter(
+              (f) =>
+                f.sku.toLowerCase().includes(lower) ||
+                f.productTitle.toLowerCase().includes(lower),
+            );
+            if (direct.length > 0) {
+              matches = direct;
+            } else {
+              matches = [...forecasts]
+                .map((f) => ({
+                  f,
+                  score: Math.max(
+                    scoreProductName(f.productTitle, query),
+                    scoreProductName(f.sku, query),
+                  ),
+                }))
+                .filter(({ score }) => score > 0)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5)
+                .map(({ f }) => f);
+            }
+          }
+
+          return {
+            ok: true,
+            data: {
+              forecasts: matches,
+              count: matches.length,
+              nearestMatches: matches.length > 0 && exact.length === 0,
             },
           };
         }),
