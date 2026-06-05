@@ -8,11 +8,12 @@ export const parsedLineItemSchema = z.object({
   color: z.string().optional(),
   cancel_date: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD")
+    .optional(),
   quantity: z.number().positive(),
   unit_price: z.number().nonnegative(),
   retail_price: z.number().nonnegative().optional(),
-  line_total: z.number().nonnegative(),
+  line_total: z.number().nonnegative().optional(),
 });
 
 export const parsedPurchaseOrderSchema = z.object({
@@ -30,7 +31,8 @@ export const parsedPurchaseOrderSchema = z.object({
     .describe("Buyer order number at top of document"),
   order_date: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD")
+    .optional(),
   original_cancel_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -39,8 +41,8 @@ export const parsedPurchaseOrderSchema = z.object({
   department: z.string().optional(),
   buyer_contact: z.string().optional(),
   payment_terms: z.string().optional(),
-  total_units: z.number().nonnegative(),
-  total_price: z.number().nonnegative(),
+  total_units: z.number().nonnegative().optional(),
+  total_price: z.number().nonnegative().optional(),
   line_items: z.array(parsedLineItemSchema).min(1),
 });
 
@@ -70,6 +72,8 @@ export const createPurchaseOrderInputSchema = z.object({
       "draft",
       "sent",
       "confirmed",
+      "in_fulfillment",
+      "shipped",
       "partially_received",
       "received",
       "closed",
@@ -135,6 +139,14 @@ export function parsedToCreateInput(
     cancel_date: item.cancel_date,
   }));
 
+  // Header totals are optional on the document; fall back to the sum of line
+  // items (qty × unit price) so a PO without a printed total still saves.
+  const computedTotal = lineItems.reduce(
+    (sum, item) => sum + item.quantity * item.unit_cost,
+    0,
+  );
+  const total = parsed.total_price ?? computedTotal;
+
   return {
     vendor_id: vendorId,
     vendor_name: parsed.buyer_name,
@@ -144,8 +156,8 @@ export function parsedToCreateInput(
     order_date: parsed.order_date,
     expected_date:
       latestCancelDate(lineItems) ?? parsed.original_cancel_date ?? undefined,
-    subtotal: parsed.total_price,
-    total: parsed.total_price,
+    subtotal: parsed.total_price ?? computedTotal,
+    total,
     notes: buildPoNotes(parsed) ?? undefined,
     line_items: lineItems,
   };

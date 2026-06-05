@@ -52,9 +52,18 @@ function buildParsedMoMessage(parsed: ParsedManufacturingOrder): string {
 
 function buildParsedPoMessage(parsed: ParsedPurchaseOrder): string {
   const poLabel = parsed.vendor_po_number ?? parsed.order_number ?? "unknown";
+  const totalUnits =
+    parsed.total_units ??
+    parsed.line_items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalPrice =
+    parsed.total_price ??
+    parsed.line_items.reduce(
+      (sum, item) => sum + item.quantity * item.unit_price,
+      0,
+    );
   return [
     `I uploaded a wholesale PO (${poLabel}) from ${parsed.buyer_name}.`,
-    `Order date: ${parsed.order_date}. Total: $${parsed.total_price.toLocaleString()} (${parsed.total_units.toLocaleString()} units, ${parsed.line_items.length} styles).`,
+    `Order date: ${parsed.order_date ?? "not specified"}. Total: $${totalPrice.toLocaleString()} (${totalUnits.toLocaleString()} units, ${parsed.line_items.length} styles).`,
     "Please save this purchase order.",
     "",
     "Parsed PO JSON:",

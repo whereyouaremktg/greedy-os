@@ -46,6 +46,18 @@ export function PoReviewDialog({ parsed, open, onOpenChange }: Props) {
 
   if (!parsed) return null;
 
+  // Header totals are optional on the source document — fall back to line-item
+  // sums so the review summary always shows a number.
+  const totalUnits =
+    parsed.total_units ??
+    parsed.line_items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalPrice =
+    parsed.total_price ??
+    parsed.line_items.reduce(
+      (sum, item) => sum + item.quantity * item.unit_price,
+      0,
+    );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <ReviewDialogShell
@@ -79,20 +91,17 @@ export function PoReviewDialog({ parsed, open, onOpenChange }: Props) {
             label="PO #"
             value={parsed.vendor_po_number ?? parsed.order_number ?? "—"}
           />
-          <ReviewSummaryItem label="Order date" value={parsed.order_date} />
+          <ReviewSummaryItem
+            label="Order date"
+            value={parsed.order_date ?? "—"}
+          />
           <ReviewSummaryItem
             label="Total units"
-            value={
-              <span className="num">
-                {parsed.total_units.toLocaleString()}
-              </span>
-            }
+            value={<span className="num">{totalUnits.toLocaleString()}</span>}
           />
           <ReviewSummaryItem
             label="Total"
-            value={
-              <span className="num">{formatUsd(parsed.total_price, 2)}</span>
-            }
+            value={<span className="num">{formatUsd(totalPrice, 2)}</span>}
           />
           {parsed.season ? (
             <ReviewSummaryItem label="Season" value={parsed.season} />
@@ -112,9 +121,11 @@ export function PoReviewDialog({ parsed, open, onOpenChange }: Props) {
               trailing: (
                 <div className="flex flex-wrap justify-end gap-x-3 gap-y-0.5 text-xs num">
                   <span>{formatUsd(item.unit_price, 2)}/unit</span>
-                  <span className="text-destructive">
-                    Cancel {item.cancel_date}
-                  </span>
+                  {item.cancel_date ? (
+                    <span className="text-destructive">
+                      Cancel {item.cancel_date}
+                    </span>
+                  ) : null}
                 </div>
               ),
             }))}
