@@ -21,6 +21,8 @@ oauth_config:
       - chat:write.public
       - commands
       - app_mentions:read
+      - channels:history
+      - groups:history
       - im:history
       - im:read
       - im:write

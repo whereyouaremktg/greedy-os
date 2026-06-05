@@ -17,6 +17,7 @@ import {
   identityNotLinkedBlocks,
   identityNotLinkedText,
 } from "@/lib/slack/messages";
+import { buildThreadMessages } from "@/lib/slack/thread";
 import { verifySlackSignature } from "@/lib/slack/verify";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -66,6 +67,7 @@ async function handleAnalystQuestion(input: {
   channel: string;
   threadTs: string;
   question: string;
+  botUserId?: string;
 }) {
   const slack = getSlackClient();
 
@@ -94,12 +96,19 @@ async function handleAnalystQuestion(input: {
       source: "slack",
     });
 
+    const messages = await buildThreadMessages({
+      channel: input.channel,
+      threadTs: input.threadTs,
+      botUserId: input.botUserId,
+      fallbackQuestion: input.question,
+    });
+
     const result = await generateText({
       model: GLOW_MODEL,
       system: `${GLOW_SYSTEM_PROMPT}\n\nDATA:\n${JSON.stringify(context)}`,
-      prompt: input.question,
+      messages,
       tools,
-      stopWhen: stepCountIs(5),
+      stopWhen: stepCountIs(12),
     });
 
     const actions = extractWriteActions(result);
@@ -177,6 +186,7 @@ export async function POST(request: Request) {
       channel: event.channel,
       threadTs,
       question,
+      botUserId,
     }),
   );
 
