@@ -1,7 +1,7 @@
 import { generateText, stepCountIs } from "ai";
 
 import { buildGlowContext } from "@/lib/ai/context";
-import { GLOW_MODEL } from "@/lib/ai/model";
+import { GLOW_DIGEST_MODEL } from "@/lib/ai/model";
 import { GLOW_DIGEST_PROMPT } from "@/lib/ai/prompt";
 import { makeGlowTools } from "@/lib/ai/tools";
 import { runCronJob, verifyCronSecret } from "@/lib/cron-auth";
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     });
 
     const result = await generateText({
-      model: GLOW_MODEL,
+      model: GLOW_DIGEST_MODEL,
       system: `${GLOW_DIGEST_PROMPT}\n\nDATA:\n${JSON.stringify(context)}`,
       prompt: `Write the morning briefing for ${today}.`,
       tools,
