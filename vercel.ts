@@ -14,8 +14,9 @@ const config: VercelConfig = {
     { path: "/api/cron/klaviyo", schedule: "0 */4 * * *" },
     { path: "/api/cron/hubspot", schedule: "0 */6 * * *" },
     { path: "/api/cron/slack-triggers", schedule: "*/15 * * * *" },
-    // Daily morning briefing, weekdays at 13:00 UTC (~8-9am US Eastern).
-    { path: "/api/cron/slack-digest", schedule: "0 13 * * 1-5" },
+    // Daily morning briefing — PAUSED at Paul's request (June 2026). The route
+    // and all digest code remain; re-enable by uncommenting this line.
+    // { path: "/api/cron/slack-digest", schedule: "0 13 * * 1-5" },
   ],
 };
 
