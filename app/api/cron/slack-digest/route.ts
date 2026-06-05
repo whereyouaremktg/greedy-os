@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     const { data: salesRows } = await supabase
       .from("shopify_metrics")
       .select(
-        "as_of_date, revenue, order_count, dtc_revenue, wholesale_revenue, wholesale_order_count, aov, synced_at",
+        "as_of_date, revenue, order_count, dtc_revenue, wholesale_revenue, wholesale_order_count, aov, sessions, conversion_rate, new_customer_count, returning_customer_count, synced_at",
       )
       .lt("as_of_date", today)
       .order("as_of_date", { ascending: false })
@@ -73,6 +73,10 @@ export async function GET(request: Request) {
           orderCount: y.order_count ?? 0,
           wholesaleOrderCount: y.wholesale_order_count,
           aov: y.aov,
+          conversionRate: y.conversion_rate,
+          sessions: y.sessions,
+          newCustomers: y.new_customer_count,
+          returningCustomers: y.returning_customer_count,
           revenueDeltaPct:
             prior?.revenue && prior.revenue > 0 && y.revenue != null
               ? ((y.revenue - prior.revenue) / prior.revenue) * 100

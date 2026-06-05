@@ -22,6 +22,10 @@ export type DigestSales = {
   orderCount: number;
   wholesaleOrderCount: number | null;
   aov: number | null;
+  conversionRate: number | null; // ratio (orders / sessions)
+  sessions: number | null;
+  newCustomers: number | null;
+  returningCustomers: number | null;
   revenueDeltaPct: number | null; // vs the prior day
   stale: boolean;
 };
@@ -100,6 +104,22 @@ export function digestBlocks(input: {
             : `${formatUsd(sales.wholesaleRevenue)} · ${formatCount(sales.wholesaleOrderCount ?? 0)} orders`,
         ),
         field("AOV", formatUsd(sales.aov, 2)),
+        field(
+          "Conversion",
+          sales.conversionRate == null
+            ? "—"
+            : `${(sales.conversionRate * 100).toFixed(1)}%${
+                sales.sessions != null
+                  ? ` · ${formatCount(sales.sessions)} sessions`
+                  : ""
+              }`,
+        ),
+        field(
+          "New / returning",
+          sales.newCustomers == null && sales.returningCustomers == null
+            ? "—"
+            : `${formatCount(sales.newCustomers ?? 0)} new · ${formatCount(sales.returningCustomers ?? 0)} returning`,
+        ),
       ]),
     );
     if (sales.stale) {

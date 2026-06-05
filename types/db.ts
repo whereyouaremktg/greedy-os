@@ -648,33 +648,51 @@ export type Database = {
         Row: {
           aov: number | null
           as_of_date: string
+          conversion_rate: number | null
           dtc_revenue: number | null
+          new_customer_count: number | null
           order_count: number | null
+          returning_customer_count: number | null
           revenue: number | null
+          sessions: number | null
           synced_at: string
+          tag_revenue: Json | null
           top_products: Json | null
+          top_provinces: Json | null
           wholesale_order_count: number | null
           wholesale_revenue: number | null
         }
         Insert: {
           aov?: number | null
           as_of_date: string
+          conversion_rate?: number | null
           dtc_revenue?: number | null
+          new_customer_count?: number | null
           order_count?: number | null
+          returning_customer_count?: number | null
           revenue?: number | null
+          sessions?: number | null
           synced_at?: string
+          tag_revenue?: Json | null
           top_products?: Json | null
+          top_provinces?: Json | null
           wholesale_order_count?: number | null
           wholesale_revenue?: number | null
         }
         Update: {
           aov?: number | null
           as_of_date?: string
+          conversion_rate?: number | null
           dtc_revenue?: number | null
+          new_customer_count?: number | null
           order_count?: number | null
+          returning_customer_count?: number | null
           revenue?: number | null
+          sessions?: number | null
           synced_at?: string
+          tag_revenue?: Json | null
           top_products?: Json | null
+          top_provinces?: Json | null
           wholesale_order_count?: number | null
           wholesale_revenue?: number | null
         }

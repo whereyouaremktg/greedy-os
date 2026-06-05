@@ -30,6 +30,15 @@ const ORDERS_QUERY = /* GraphQL */ `
             amount
           }
         }
+        customer {
+          numberOfOrders
+        }
+        shippingAddress {
+          provinceCode
+        }
+        purchasingEntity {
+          __typename
+        }
         lineItems(first: $liFirst) {
           pageInfo {
             hasNextPage
@@ -64,6 +73,9 @@ type OrderNode = {
   createdAt: string;
   tags: string[];
   subtotalPriceSet: { shopMoney: ShopMoney } | null;
+  customer: { numberOfOrders: string | number | null } | null;
+  shippingAddress: { provinceCode: string | null } | null;
+  purchasingEntity: { __typename: string } | null;
   lineItems: {
     pageInfo: { hasNextPage: boolean };
     nodes: LineItemNode[];
@@ -94,12 +106,16 @@ type TopProduct = {
   units: number;
 };
 
-// An order is wholesale (B2B) if any of its tags matches B2B / Wholesale.
+// An order is wholesale (B2B) if it's placed by a B2B company (purchasingEntity)
+// or any tag matches B2B / Wholesale (covers orders tagged but not on Shopify B2B).
 const WHOLESALE_TAG_RE = /\b(b2b|wholesale)\b/i;
 
-function isWholesaleOrder(tags: string[] | null | undefined): boolean {
-  return (tags ?? []).some((t) => WHOLESALE_TAG_RE.test(t));
+function isWholesaleOrder(order: OrderNode): boolean {
+  if (order.purchasingEntity?.__typename === "PurchasingCompany") return true;
+  return (order.tags ?? []).some((t) => WHOLESALE_TAG_RE.test(t));
 }
+
+type Rollup = { revenue: number; orders: number };
 
 type ShopifyMetricsRow = {
   as_of_date: string;
@@ -110,6 +126,12 @@ type ShopifyMetricsRow = {
   wholesale_order_count: number;
   aov: number;
   top_products: TopProduct[];
+  sessions: number | null;
+  conversion_rate: number | null;
+  new_customer_count: number;
+  returning_customer_count: number;
+  top_provinces: Record<string, Rollup>;
+  tag_revenue: Record<string, Rollup>;
   synced_at: string;
 };
 
@@ -191,6 +213,28 @@ async function waitForBudget(cost: QueryCost | null): Promise<void> {
   await sleep(Math.min(waitMs, 10_000));
 }
 
+function addRollup(
+  map: Map<string, Rollup>,
+  key: string,
+  revenue: number,
+): void {
+  const existing = map.get(key);
+  if (existing) {
+    existing.revenue += revenue;
+    existing.orders += 1;
+  } else {
+    map.set(key, { revenue, orders: 1 });
+  }
+}
+
+function roundRollups(map: Map<string, Rollup>): Record<string, Rollup> {
+  const out: Record<string, Rollup> = {};
+  for (const [key, v] of map) {
+    out[key] = { revenue: round2(v.revenue), orders: v.orders };
+  }
+  return out;
+}
+
 async function aggregateDay(
   client: ReturnType<typeof createAdminApiClient>,
   dayStart: Date,
@@ -201,7 +245,11 @@ async function aggregateDay(
   dtcRevenue: number;
   wholesaleRevenue: number;
   wholesaleOrderCount: number;
+  newCustomerCount: number;
+  returningCustomerCount: number;
   topProducts: TopProduct[];
+  topProvinces: Record<string, Rollup>;
+  tagRevenue: Record<string, Rollup>;
 }> {
   const queryStr = `created_at:>='${dayStart.toISOString()}' created_at:<'${dayEnd.toISOString()}'`;
 
@@ -210,7 +258,11 @@ async function aggregateDay(
   let orderCount = 0;
   let wholesaleRevenue = 0;
   let wholesaleOrderCount = 0;
+  let newCustomerCount = 0;
+  let returningCustomerCount = 0;
   const productTotals = new Map<string, TopProduct>();
+  const provinceTotals = new Map<string, Rollup>();
+  const tagTotals = new Map<string, Rollup>();
 
   while (true) {
     const { data, cost } = await requestOrdersPage(client, {
@@ -228,9 +280,21 @@ async function aggregateDay(
       revenue += safeSubtotal;
       orderCount += 1;
 
-      if (isWholesaleOrder(order.tags)) {
+      if (isWholesaleOrder(order)) {
         wholesaleRevenue += safeSubtotal;
         wholesaleOrderCount += 1;
+      }
+
+      // New vs returning: numberOfOrders includes this order, so 1 = first.
+      const lifetime = Number(order.customer?.numberOfOrders ?? 0);
+      if (lifetime > 1) returningCustomerCount += 1;
+      else newCustomerCount += 1;
+
+      const province = order.shippingAddress?.provinceCode?.trim();
+      if (province) addRollup(provinceTotals, province, safeSubtotal);
+
+      for (const tag of order.tags ?? []) {
+        addRollup(tagTotals, tag, safeSubtotal);
       }
 
       for (const li of order.lineItems?.nodes ?? []) {
@@ -281,8 +345,57 @@ async function aggregateDay(
     dtcRevenue: revenue - wholesaleRevenue,
     wholesaleRevenue,
     wholesaleOrderCount,
+    newCustomerCount,
+    returningCustomerCount,
     topProducts,
+    topProvinces: roundRollups(provinceTotals),
+    tagRevenue: roundRollups(tagTotals),
   };
+}
+
+// Daily sessions from the ShopifyQL `sessions` dataset → map of YYYY-MM-DD →
+// sessions. Used to compute conversion_rate (orders / sessions).
+const SESSIONS_QUERY = /* GraphQL */ `
+  query GlowOsSessions($q: String!) {
+    shopifyqlQuery(query: $q) {
+      parseErrors
+      tableData {
+        columns { name }
+        rows
+      }
+    }
+  }
+`;
+
+async function fetchSessionsByDay(
+  client: ReturnType<typeof createAdminApiClient>,
+  windowDays: number,
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  try {
+    const q = `FROM sessions SHOW sessions GROUP BY day SINCE -${windowDays}d UNTIL today ORDER BY day`;
+    const res = await client.request<{
+      shopifyqlQuery: {
+        parseErrors: string[] | null;
+        tableData: {
+          columns: { name: string }[];
+          rows: Array<Record<string, string | number>>;
+        } | null;
+      };
+    }>(SESSIONS_QUERY, { variables: { q } });
+
+    const data = res.data?.shopifyqlQuery;
+    if (res.errors || !data?.tableData) return out;
+
+    for (const row of data.tableData.rows) {
+      const day = String(row.day ?? "").slice(0, 10);
+      const sessions = Number(row.sessions ?? 0);
+      if (day && Number.isFinite(sessions)) out.set(day, sessions);
+    }
+  } catch {
+    // Sessions are best-effort — a ShopifyQL hiccup shouldn't fail the pull.
+  }
+  return out;
 }
 
 export async function runShopifyPull(): Promise<{ ok: true; rows: number }> {
@@ -306,6 +419,8 @@ export async function runShopifyPull(): Promise<{ ok: true; rows: number }> {
   const syncedAt = new Date().toISOString();
   const rows: ShopifyMetricsRow[] = [];
 
+  const sessionsByDay = await fetchSessionsByDay(client, WINDOW_DAYS);
+
   for (let i = 0; i < WINDOW_DAYS; i++) {
     const dayStart = new Date(today);
     dayStart.setUTCDate(dayStart.getUTCDate() - i);
@@ -318,14 +433,25 @@ export async function runShopifyPull(): Promise<{ ok: true; rows: number }> {
       dtcRevenue,
       wholesaleRevenue,
       wholesaleOrderCount,
+      newCustomerCount,
+      returningCustomerCount,
       topProducts,
+      topProvinces,
+      tagRevenue,
     } = await aggregateDay(client, dayStart, dayEnd);
 
     const roundedRevenue = round2(revenue);
     const aov = orderCount > 0 ? round2(roundedRevenue / orderCount) : 0;
 
+    const dateStr = isoDate(dayStart);
+    const sessions = sessionsByDay.get(dateStr) ?? null;
+    const conversionRate =
+      sessions && sessions > 0
+        ? Math.round((orderCount / sessions) * 10000) / 10000
+        : null;
+
     rows.push({
-      as_of_date: isoDate(dayStart),
+      as_of_date: dateStr,
       revenue: roundedRevenue,
       order_count: orderCount,
       dtc_revenue: round2(dtcRevenue),
@@ -333,6 +459,12 @@ export async function runShopifyPull(): Promise<{ ok: true; rows: number }> {
       wholesale_order_count: wholesaleOrderCount,
       aov,
       top_products: topProducts,
+      sessions,
+      conversion_rate: conversionRate,
+      new_customer_count: newCustomerCount,
+      returning_customer_count: returningCustomerCount,
+      top_provinces: topProvinces,
+      tag_revenue: tagRevenue,
       synced_at: syncedAt,
     });
   }
