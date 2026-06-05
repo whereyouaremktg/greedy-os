@@ -1,6 +1,8 @@
 import type {
   ActionsBlock,
   Block,
+  ContextBlock,
+  DividerBlock,
   HeaderBlock,
   SectionBlock,
 } from "@slack/web-api";
@@ -49,6 +51,17 @@ export function actionButton(
     action_id: actionId,
     value,
     ...(style ? { style } : {}),
+  };
+}
+
+export function dividerBlock(): DividerBlock {
+  return { type: "divider" };
+}
+
+export function contextBlock(text: string): ContextBlock {
+  return {
+    type: "context",
+    elements: [{ type: "mrkdwn", text }],
   };
 }
 
