@@ -11,6 +11,7 @@ import {
   digestBlocks,
   type DigestCash,
   type DigestSales,
+  type DigestStockItem,
 } from "@/lib/slack/digest";
 import { sendSlack } from "@/lib/slack/dispatch";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -102,6 +103,22 @@ export async function GET(request: Request) {
         }
       : null;
 
+    // --- Low / oversold stock (tracked variants under threshold) ---
+    const LOW_STOCK_THRESHOLD = 25;
+    const { data: stockRows } = await supabase
+      .from("shopify_inventory")
+      .select("product_title, variant_title, sku, inventory_quantity")
+      .lt("inventory_quantity", LOW_STOCK_THRESHOLD)
+      .order("inventory_quantity", { ascending: true })
+      .limit(8);
+
+    const stock: DigestStockItem[] = (stockRows ?? []).map((r) => ({
+      productTitle: r.product_title,
+      variantTitle: r.variant_title,
+      sku: r.sku,
+      quantity: r.inventory_quantity,
+    }));
+
     // --- Model narrative (headline + PO/manufacturing bullets) ---
     const context = await buildGlowContext(supabase);
     const { object: narrative } = await generateObject({
@@ -117,6 +134,7 @@ export async function GET(request: Request) {
       narrative,
       sales,
       cash,
+      stock,
     });
 
     const send = await sendSlack({

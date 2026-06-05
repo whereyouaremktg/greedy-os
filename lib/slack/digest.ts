@@ -48,6 +48,13 @@ export type DigestNarrative = {
   manufacturing: DigestBullet[];
 };
 
+export type DigestStockItem = {
+  productTitle: string;
+  variantTitle: string | null;
+  sku: string | null;
+  quantity: number;
+};
+
 const URGENCY_EMOJI: Record<DigestBullet["urgency"], string> = {
   alert: "🔴",
   warn: "🟡",
@@ -67,14 +74,31 @@ function bulletLines(items: DigestBullet[], emptyText: string): string {
     .join("\n");
 }
 
+function stockLines(items: DigestStockItem[]): string {
+  return items
+    .map((s) => {
+      const emoji = s.quantity <= 0 ? "🔴" : "🟡";
+      const name = s.variantTitle
+        ? `${s.productTitle} — ${s.variantTitle}`
+        : s.productTitle;
+      const qty =
+        s.quantity < 0
+          ? `${s.quantity} (oversold)`
+          : `${s.quantity} left`;
+      return `${emoji} ${name}: *${qty}*`;
+    })
+    .join("\n");
+}
+
 export function digestBlocks(input: {
   heading: string;
   dateLabel: string;
   narrative: DigestNarrative;
   sales: DigestSales | null;
   cash: DigestCash | null;
+  stock: DigestStockItem[];
 }): Block[] {
-  const { heading, dateLabel, narrative, sales, cash } = input;
+  const { heading, dateLabel, narrative, sales, cash, stock } = input;
 
   const out: Block[] = [
     headerBlock(heading),
@@ -149,6 +173,16 @@ export function digestBlocks(input: {
     ),
     dividerBlock(),
   );
+
+  // Stock alerts — only shown when something is low or oversold.
+  if (stock.length > 0) {
+    out.push(
+      sectionBlock(
+        `*📦 Stock alerts*  <${glowUrl("/products")}|view>\n${stockLines(stock)}`,
+      ),
+      dividerBlock(),
+    );
+  }
 
   // Cash.
   if (cash) {

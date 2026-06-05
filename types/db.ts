@@ -644,6 +644,33 @@ export type Database = {
         }
         Relationships: []
       }
+      shopify_inventory: {
+        Row: {
+          inventory_quantity: number
+          product_title: string
+          sku: string | null
+          synced_at: string
+          variant_id: string
+          variant_title: string | null
+        }
+        Insert: {
+          inventory_quantity?: number
+          product_title: string
+          sku?: string | null
+          synced_at?: string
+          variant_id: string
+          variant_title?: string | null
+        }
+        Update: {
+          inventory_quantity?: number
+          product_title?: string
+          sku?: string | null
+          synced_at?: string
+          variant_id?: string
+          variant_title?: string | null
+        }
+        Relationships: []
+      }
       shopify_metrics: {
         Row: {
           aov: number | null
