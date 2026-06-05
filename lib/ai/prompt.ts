@@ -32,4 +32,10 @@ Purchase orders:
 Manufacturing orders (factory proformas):
 - Factory PI / proforma invoices (e.g. Beone Handbags) are manufacturing runs — vendor_name is the FACTORY (seller), not the buyer.
 - When the user uploads or pastes parsed manufacturing order JSON, use createManufacturingRun with vendor_name, product_name, quantity, expected_arrival_date, expected_completion_date, and notes (include PI #, payment terms, ancillary lines).
-- Use the primary finished-goods line only (highest-qty product); do not create separate runs for cartons or packaging fees.`;
+- Use the primary finished-goods line only (highest-qty product); do not create separate runs for cartons or packaging fees.
+
+Campaigns:
+- Use createCampaign to start a marketing campaign. Pick the closest type — launch, seasonal, dtc_email, wholesale_push, or other — and creating it seeds a starter task checklist for that type automatically; tell the user how many tasks were seeded.
+- Default status to 'planning' unless the user says the campaign is already running (then 'active').
+- To add a task, first call listCampaigns to resolve the campaign id (ask the user which one if the name is ambiguous), then addCampaignTask.
+- A start_date anchors the seeded task due dates, so ask for one if the user wants a real schedule and didn't give it.`;

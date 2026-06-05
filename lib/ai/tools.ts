@@ -24,6 +24,12 @@ import {
   createPurchaseOrderCore,
 } from "@/lib/purchase-orders/core";
 import { createPurchaseOrderInputSchema } from "@/lib/purchase-orders/schema";
+import { createCampaignCore } from "@/lib/campaigns/core";
+import {
+  CAMPAIGN_STATUSES,
+  CAMPAIGN_TASK_STATUSES,
+  CAMPAIGN_TYPES,
+} from "@/lib/campaigns/types";
 import { findOrCreateVendorByName } from "@/lib/vendors/lookup";
 import { createVendorCore, createVendorInput } from "@/lib/vendors/core";
 import type { ManufacturingStage } from "@/lib/manufacturing/stages";
@@ -549,6 +555,131 @@ export function makeGlowTools(ctx: GlowToolCtx) {
           if (!created.ok) return created;
           revalidateTimelinePaths();
           return { ok: true, data: created.data };
+        }),
+    }),
+
+    listCampaigns: tool({
+      description:
+        "List marketing campaigns with type, status, dates, and open task counts. Use to find an existing campaign before adding tasks, or when the user asks what campaigns are planned or active.",
+      inputSchema: z.object({
+        nameContains: z
+          .string()
+          .optional()
+          .describe("Optional campaign name filter."),
+        limit: z.number().int().min(1).max(50).default(20),
+      }),
+      execute: async ({ nameContains, limit }) =>
+        runTool(async () => {
+          const { data, error } = await supabase
+            .from("campaigns")
+            .select(
+              `id, name, type, status, start_date, end_date,
+               campaign_tasks ( status )`,
+            )
+            .order("start_date", { ascending: false, nullsFirst: false })
+            .limit(limit);
+
+          if (error) {
+            return toolError(error.code ?? "DB_ERROR", error.message);
+          }
+
+          let campaigns = (data ?? []).map((row) => {
+            const tasks = row.campaign_tasks ?? [];
+            return {
+              id: row.id,
+              name: row.name,
+              type: row.type,
+              status: row.status,
+              start_date: row.start_date,
+              end_date: row.end_date,
+              task_count: tasks.length,
+              open_task_count: tasks.filter((t) => t.status !== "done").length,
+            };
+          });
+
+          if (nameContains?.trim()) {
+            const q = nameContains.trim().toLowerCase();
+            campaigns = campaigns.filter((c) =>
+              c.name.toLowerCase().includes(q),
+            );
+          }
+
+          return { ok: true, data: { campaigns, count: campaigns.length } };
+        }),
+    }),
+
+    createCampaign: tool({
+      description:
+        "Create a marketing campaign. Seeds a starter task checklist based on type. Use when the user asks to start, plan, or set up a campaign. Default status to 'planning' unless the user says it's already running.",
+      inputSchema: z.object({
+        name: z.string().min(1).describe("Campaign name."),
+        type: z
+          .enum(CAMPAIGN_TYPES)
+          .describe(
+            "launch (product launch), seasonal, dtc_email, wholesale_push, or other.",
+          ),
+        status: z.enum(CAMPAIGN_STATUSES).default("planning"),
+        start_date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .default(null)
+          .describe("YYYY-MM-DD; anchors seeded task due dates."),
+        end_date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .default(null),
+        notes: z.string().nullable().default(null),
+      }),
+      execute: async (input) =>
+        runTool(async () => {
+          const created = await createCampaignCore(supabase, actorUserId, input);
+          if (!created.ok) {
+            return toolError(created.error.code ?? "DB_ERROR", created.error.message);
+          }
+          revalidateTimelinePaths();
+          return { ok: true, data: { id: created.data.id, name: input.name } };
+        }),
+    }),
+
+    addCampaignTask: tool({
+      description:
+        "Add a single task to an existing campaign. Resolve the campaign via listCampaigns first to get its id; if the campaign name is ambiguous, ask the user which one.",
+      inputSchema: z.object({
+        campaign_id: z.string().uuid().describe("Target campaign id."),
+        title: z.string().min(1).describe("Task title."),
+        owner: z.string().nullable().default(null),
+        due_date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .default(null),
+        status: z.enum(CAMPAIGN_TASK_STATUSES).default("todo"),
+      }),
+      execute: async (input) =>
+        runTool(async () => {
+          const { data, error } = await supabase
+            .from("campaign_tasks")
+            .insert({
+              campaign_id: input.campaign_id,
+              title: input.title,
+              owner: input.owner,
+              due_date: input.due_date,
+              status: input.status,
+            })
+            .select("id")
+            .single();
+
+          if (error || !data) {
+            return toolError(
+              error?.code ?? "DB_ERROR",
+              error?.message ?? "Failed to create task",
+            );
+          }
+
+          revalidateTimelinePaths();
+          return { ok: true, data: { id: data.id, title: input.title } };
         }),
     }),
   };
