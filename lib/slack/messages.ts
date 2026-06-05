@@ -109,6 +109,20 @@ export function analystAnswerBlocks(answer: string): Block[] {
   return blocks(sectionBlock(answer));
 }
 
+export function dailyDigestBlocks(input: {
+  heading: string;
+  body: string;
+}): Block[] {
+  return blocks(
+    headerBlock(input.heading),
+    sectionBlock(input.body),
+    actionsBlock([
+      linkButton("Open dashboard", glowUrl("/dashboard")),
+      linkButton("Purchase orders", glowUrl("/purchase-orders")),
+    ]),
+  );
+}
+
 export function analystAnswerWithActionsBlocks(
   answer: string,
   actions: Array<{ id: string; label: string }>,
