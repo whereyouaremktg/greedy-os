@@ -58,7 +58,7 @@ function buildParsedPoMessage(parsed: ParsedPurchaseOrder): string {
   const totalPrice =
     parsed.total_price ??
     parsed.line_items.reduce(
-      (sum, item) => sum + item.quantity * item.unit_price,
+      (sum, item) => sum + item.quantity * (item.unit_price ?? 0),
       0,
     );
   return [

@@ -54,7 +54,7 @@ export function PoReviewDialog({ parsed, open, onOpenChange }: Props) {
   const totalPrice =
     parsed.total_price ??
     parsed.line_items.reduce(
-      (sum, item) => sum + item.quantity * item.unit_price,
+      (sum, item) => sum + item.quantity * (item.unit_price ?? 0),
       0,
     );
 
@@ -120,7 +120,11 @@ export function PoReviewDialog({ parsed, open, onOpenChange }: Props) {
               quantity: item.quantity,
               trailing: (
                 <div className="flex flex-wrap justify-end gap-x-3 gap-y-0.5 text-xs num">
-                  <span>{formatUsd(item.unit_price, 2)}/unit</span>
+                  {item.unit_price != null ? (
+                    <span>{formatUsd(item.unit_price, 2)}/unit</span>
+                  ) : (
+                    <span className="text-muted-foreground">no cost</span>
+                  )}
                   {item.cancel_date ? (
                     <span className="text-destructive">
                       Cancel {item.cancel_date}

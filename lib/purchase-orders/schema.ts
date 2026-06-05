@@ -11,7 +11,7 @@ export const parsedLineItemSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD")
     .optional(),
   quantity: z.number().positive(),
-  unit_price: z.number().nonnegative(),
+  unit_price: z.number().nonnegative().optional(),
   retail_price: z.number().nonnegative().optional(),
   line_total: z.number().nonnegative().optional(),
 });
@@ -134,13 +134,15 @@ export function parsedToCreateInput(
     style_number: item.style_number,
     color: item.color,
     quantity: item.quantity,
-    unit_cost: item.unit_price,
+    // Reorder emails often have no cost column — default to 0 (price TBD)
+    // rather than blocking the save; it can be filled in later.
+    unit_cost: item.unit_price ?? 0,
     retail_price: item.retail_price,
     cancel_date: item.cancel_date,
   }));
 
   // Header totals are optional on the document; fall back to the sum of line
-  // items (qty × unit price) so a PO without a printed total still saves.
+  // items (qty × unit cost) so a PO without a printed total still saves.
   const computedTotal = lineItems.reduce(
     (sum, item) => sum + item.quantity * item.unit_cost,
     0,
