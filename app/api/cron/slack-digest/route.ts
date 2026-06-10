@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { z } from "zod";
 
 import { buildGlowContext } from "@/lib/ai/context";
+import { withModelFallback } from "@/lib/ai/generate";
 import { GLOW_DIGEST_MODEL } from "@/lib/ai/model";
 import { GLOW_DIGEST_PROMPT } from "@/lib/ai/prompt";
 import { runCronJob, verifyCronSecret } from "@/lib/cron-auth";
@@ -157,12 +158,16 @@ export async function GET(request: Request) {
 
     // --- Model narrative (headline + PO/manufacturing bullets) ---
     const context = await buildGlowContext(supabase);
-    const { object: narrative } = await generateObject({
-      model: GLOW_DIGEST_MODEL,
-      schema: narrativeSchema,
-      system: `${GLOW_DIGEST_PROMPT}\n\nDATA:\n${JSON.stringify(context)}`,
-      prompt: `Produce the briefing narrative for ${yesterday}.`,
-    });
+    const { object: narrative } = await withModelFallback(
+      GLOW_DIGEST_MODEL,
+      (model) =>
+        generateObject({
+          model,
+          schema: narrativeSchema,
+          system: `${GLOW_DIGEST_PROMPT}\n\nDATA:\n${JSON.stringify(context)}`,
+          prompt: `Produce the briefing narrative for ${yesterday}.`,
+        }),
+    );
 
     const blocks = digestBlocks({
       heading: "☀️ Glow OS — morning briefing",

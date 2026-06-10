@@ -2,6 +2,7 @@ import { generateText, stepCountIs } from "ai";
 import { waitUntil } from "@vercel/functions";
 import { buildGlowContext } from "@/lib/ai/context";
 import { analystErrorSlackText } from "@/lib/ai/analyst-errors";
+import { withModelFallback } from "@/lib/ai/generate";
 import { GLOW_MODEL } from "@/lib/ai/model";
 import { GLOW_SYSTEM_PROMPT } from "@/lib/ai/prompt";
 import { extractWriteActions } from "@/lib/ai/slack-actions";
@@ -28,6 +29,7 @@ export const dynamic = "force-dynamic";
 type SlackEventPayload = {
   type: string;
   challenge?: string;
+  event_id?: string;
   event?: SlackMessageEvent;
 };
 
@@ -103,13 +105,15 @@ async function handleAnalystQuestion(input: {
       fallbackQuestion: input.question,
     });
 
-    const result = await generateText({
-      model: GLOW_MODEL,
-      system: `${GLOW_SYSTEM_PROMPT}\n\nDATA:\n${JSON.stringify(context)}`,
-      messages,
-      tools,
-      stopWhen: stepCountIs(12),
-    });
+    const result = await withModelFallback(GLOW_MODEL, (model) =>
+      generateText({
+        model,
+        system: `${GLOW_SYSTEM_PROMPT}\n\nDATA:\n${JSON.stringify(context)}`,
+        messages,
+        tools,
+        stopWhen: stepCountIs(12),
+      }),
+    );
 
     const actions = extractWriteActions(result);
     const text =
@@ -178,6 +182,34 @@ export async function POST(request: Request) {
     return new Response("ok");
   }
 
+  // Slack re-delivers events it thinks we didn't ack (slow cold start) and can
+  // deliver one message under two subscriptions (app_mention + message.im).
+  // Either would re-run a write-capable agent turn — e.g. a duplicate PO — so
+  // (a) drop retry deliveries outright, (b) claim the event_id in
+  // slack_notifications (unique dedupe_key) before processing.
+  if (request.headers.get("x-slack-retry-num")) {
+    return new Response("ok", { headers: { "x-slack-no-retry": "1" } });
+  }
+
+  if (payload.event_id) {
+    const { error: dupError } = await createServiceClient()
+      .from("slack_notifications")
+      .insert({
+        dedupe_key: `slack-event:${payload.event_id}`,
+        channel: event.channel ?? "unknown",
+        message_ts: event.ts ?? null,
+        payload: { kind: "event-claim", type: event.type },
+      });
+    if (dupError) {
+      if (dupError.code === "23505") {
+        return new Response("ok"); // already handled this delivery
+      }
+      // Dedupe table hiccup — log and answer anyway; a rare double reply
+      // beats silently dropping the question.
+      console.warn("[slack/events] event dedupe insert failed", dupError);
+    }
+  }
+
   const threadTs = event.thread_ts ?? event.ts ?? "";
 
   waitUntil(
@@ -187,7 +219,9 @@ export async function POST(request: Request) {
       threadTs,
       question,
       botUserId,
-    }),
+    }).catch((err) =>
+      console.error("[slack/events] unhandled analyst error", err),
+    ),
   );
 
   return new Response("ok");

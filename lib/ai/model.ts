@@ -28,6 +28,19 @@ const DEFAULT_DIGEST_MODEL = "anthropic/claude-sonnet-4.6";
 // heavy lifting. Override with GLOW_PARSE_MODEL if Pro quota is raised.
 const DEFAULT_PARSE_MODEL = "google/gemini-2.5-flash";
 
+// Fallback chain when the primary model is rate-limited or unavailable
+// (e.g. Gateway free-tier 429s on Claude, including via BYOK). Gemini Flash is
+// the default fallback because it's proven on this Gateway (it runs the parse
+// path). Comma-separated env override, tried in order after the primary.
+const DEFAULT_FALLBACK_MODELS = "google/gemini-2.5-flash";
+
+export const GLOW_FALLBACK_MODELS = (
+  process.env.GLOW_FALLBACK_MODELS?.trim() || DEFAULT_FALLBACK_MODELS
+)
+  .split(",")
+  .map((m) => m.trim())
+  .filter(Boolean);
+
 export const GLOW_MODEL =
   process.env.GLOW_AI_MODEL?.trim() || DEFAULT_GLOW_MODEL;
 

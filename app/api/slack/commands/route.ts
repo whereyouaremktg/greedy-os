@@ -2,6 +2,7 @@ import { generateText, stepCountIs } from "ai";
 import { waitUntil } from "@vercel/functions";
 import { buildGlowContext } from "@/lib/ai/context";
 import { analystErrorSlackText } from "@/lib/ai/analyst-errors";
+import { withModelFallback } from "@/lib/ai/generate";
 import { GLOW_MODEL } from "@/lib/ai/model";
 import { GLOW_SYSTEM_PROMPT } from "@/lib/ai/prompt";
 import { extractWriteActions } from "@/lib/ai/slack-actions";
@@ -63,13 +64,15 @@ async function handleSlashCommand(input: {
       source: "slack",
     });
 
-    const result = await generateText({
-      model: GLOW_MODEL,
-      system: `${GLOW_SYSTEM_PROMPT}\n\nDATA:\n${JSON.stringify(context)}`,
-      prompt: input.question,
-      tools,
-      stopWhen: stepCountIs(5),
-    });
+    const result = await withModelFallback(GLOW_MODEL, (model) =>
+      generateText({
+        model,
+        system: `${GLOW_SYSTEM_PROMPT}\n\nDATA:\n${JSON.stringify(context)}`,
+        prompt: input.question,
+        tools,
+        stopWhen: stepCountIs(5),
+      }),
+    );
 
     const actions = extractWriteActions(result);
     const text =
@@ -122,7 +125,9 @@ export async function POST(request: Request) {
       slackUserId: userId,
       responseUrl,
       question: text,
-    }),
+    }).catch((err) =>
+      console.error("[slack/commands] unhandled analyst error", err),
+    ),
   );
 
   return Response.json({

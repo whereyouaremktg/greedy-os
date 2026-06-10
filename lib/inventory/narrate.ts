@@ -9,6 +9,7 @@ import "server-only";
 import { generateObject } from "ai";
 import { z } from "zod";
 
+import { withModelFallback } from "@/lib/ai/generate";
 import { GLOW_DIGEST_MODEL } from "@/lib/ai/model";
 import type { SkuForecast } from "@/lib/inventory/forecast";
 
@@ -95,12 +96,14 @@ export async function narrateForecast(
     reasons: f.reasons,
   }));
 
-  const { object } = await generateObject({
-    model: GLOW_DIGEST_MODEL,
-    schema: narrationSchema,
-    system: `${SYSTEM}\n\nFORECAST (authoritative — narrate only these):\n${JSON.stringify(payload)}`,
-    prompt: `Write the reorder briefing as of ${new Date().toISOString().slice(0, 10)}.`,
-  });
+  const { object } = await withModelFallback(GLOW_DIGEST_MODEL, (model) =>
+    generateObject({
+      model,
+      schema: narrationSchema,
+      system: `${SYSTEM}\n\nFORECAST (authoritative — narrate only these):\n${JSON.stringify(payload)}`,
+      prompt: `Write the reorder briefing as of ${new Date().toISOString().slice(0, 10)}.`,
+    }),
+  );
 
   return object;
 }

@@ -9,7 +9,7 @@ features:
     always_online: true
   slash_commands:
     - command: /glow
-      url: https://YOUR_DEPLOYMENT_URL/api/slack/commands
+      url: https://glow-os-bay.vercel.app/api/slack/commands
       description: Query Glow OS status, payments, pipeline, and ask the analyst
       usage_hint: "[subcommand] [args]"
       should_escape: false
@@ -31,13 +31,13 @@ oauth_config:
 
 settings:
   event_subscriptions:
-    request_url: https://YOUR_DEPLOYMENT_URL/api/slack/events
+    request_url: https://glow-os-bay.vercel.app/api/slack/events
     bot_events:
       - app_mention
       - message.im
   interactivity:
     is_enabled: true
-    request_url: https://YOUR_DEPLOYMENT_URL/api/slack/interactivity
+    request_url: https://glow-os-bay.vercel.app/api/slack/interactivity
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false

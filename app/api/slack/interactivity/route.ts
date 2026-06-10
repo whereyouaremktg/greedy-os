@@ -1,4 +1,5 @@
 import { addDays, formatISO } from "date-fns";
+import { waitUntil } from "@vercel/functions";
 import {
   IdentityNotLinkedError,
   resolveGlowUser,
@@ -101,6 +102,20 @@ export async function POST(request: Request) {
     return new Response("ok");
   }
 
+  // Ack within Slack's 3s window; the DB work + response_url update run after.
+  waitUntil(
+    handleBlockAction(payload, action, paymentId).catch((err) =>
+      console.error("[slack/interactivity] action error", err),
+    ),
+  );
+  return new Response("ok");
+}
+
+async function handleBlockAction(
+  payload: SlackInteractivityPayload,
+  action: SlackAction,
+  paymentId: string,
+) {
   try {
     await resolveGlowUser(payload.user.id);
   } catch (err) {
@@ -111,7 +126,7 @@ export async function POST(request: Request) {
         text: identityNotLinkedText(err.slackUserId, err.slackEmail),
         blocks: identityNotLinkedBlocks(err.slackUserId, err.slackEmail),
       });
-      return new Response("ok");
+      return;
     }
     throw err;
   }
@@ -139,7 +154,7 @@ export async function POST(request: Request) {
       console.error("[slack/interactivity] mark paid error", error);
     }
 
-    return new Response("ok");
+    return;
   }
 
   if (action.action_id === "snooze-payment") {
@@ -173,8 +188,6 @@ export async function POST(request: Request) {
       console.error("[slack/interactivity] snooze error", error);
     }
 
-    return new Response("ok");
+    return;
   }
-
-  return new Response("ok");
 }
