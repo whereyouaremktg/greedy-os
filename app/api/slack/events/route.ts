@@ -98,18 +98,28 @@ async function handleAnalystQuestion(input: {
       source: "slack",
     });
 
-    const messages = await buildThreadMessages({
+    const thread = await buildThreadMessages({
       channel: input.channel,
       threadTs: input.threadTs,
       botUserId: input.botUserId,
       fallbackQuestion: input.question,
     });
 
+    // When the thread can't be read, the model only sees the latest message.
+    // Say so, so it asks for missing details instead of guessing (or claiming
+    // the conversation "just started").
+    const historyNote = thread.historyAvailable
+      ? ""
+      : "\n\nNOTE: You could NOT read this Slack thread's earlier messages " +
+        "(permissions issue) — you only see the latest one. If it references " +
+        "earlier context you don't have, say you can't see the earlier " +
+        "messages and ask the user to restate the details in one message.";
+
     const result = await withModelFallback(GLOW_MODEL, (model) =>
       generateText({
         model,
-        system: `${GLOW_SYSTEM_PROMPT}\n\nDATA:\n${JSON.stringify(context)}`,
-        messages,
+        system: `${GLOW_SYSTEM_PROMPT}${historyNote}\n\nDATA:\n${JSON.stringify(context)}`,
+        messages: thread.messages,
         tools,
         stopWhen: stepCountIs(12),
       }),

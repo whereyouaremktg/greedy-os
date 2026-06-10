@@ -21,13 +21,20 @@ function stripBotMention(text: string, botUserId?: string): string {
  *
  * Falls back to a single user message if the thread can't be read.
  */
+export type ThreadMessagesResult = {
+  messages: ModelMessage[];
+  /** False when the thread couldn't be read (e.g. token missing
+   * channels:history — the app must be reinstalled after scope changes). */
+  historyAvailable: boolean;
+};
+
 export async function buildThreadMessages(input: {
   channel: string;
   threadTs: string;
   botUserId?: string;
   fallbackQuestion: string;
   limit?: number;
-}): Promise<ModelMessage[]> {
+}): Promise<ThreadMessagesResult> {
   const { channel, threadTs, botUserId, fallbackQuestion, limit = 20 } = input;
 
   try {
@@ -64,10 +71,26 @@ export async function buildThreadMessages(input: {
       messages.push({ role: "user", content: fallbackQuestion });
     }
 
-    return messages.length > 0
-      ? messages
-      : [{ role: "user", content: fallbackQuestion }];
-  } catch {
-    return [{ role: "user", content: fallbackQuestion }];
+    return {
+      messages:
+        messages.length > 0
+          ? messages
+          : [{ role: "user", content: fallbackQuestion }],
+      historyAvailable: true,
+    };
+  } catch (err) {
+    // Loud, not silent: a missing_scope here means the Slack app was never
+    // reinstalled after channels:history/groups:history landed in the
+    // manifest, and the analyst loses all thread memory in channels.
+    console.error(
+      `[slack/thread] conversations.replies failed for ${channel}/${threadTs} — ` +
+        "falling back to the latest message only. If the error is missing_scope, " +
+        "reinstall the Slack app so the token picks up channels:history.",
+      err,
+    );
+    return {
+      messages: [{ role: "user", content: fallbackQuestion }],
+      historyAvailable: false,
+    };
   }
 }
