@@ -7,30 +7,12 @@ import type {
   SectionBlock,
 } from "@slack/web-api";
 
-type MrkdwnField = { type: "mrkdwn"; text: string };
-
 export function headerBlock(text: string): HeaderBlock {
   return { type: "header", text: { type: "plain_text", text, emoji: false } };
 }
 
 export function sectionBlock(text: string): SectionBlock {
   return { type: "section", text: { type: "mrkdwn", text } };
-}
-
-/** Section with a right-aligned element (e.g. a linkButton "View"). */
-export function sectionWithAccessory(
-  text: string,
-  accessory: SectionBlock["accessory"],
-): SectionBlock {
-  return { type: "section", text: { type: "mrkdwn", text }, accessory };
-}
-
-export function fieldsSection(fields: MrkdwnField[]): SectionBlock {
-  return { type: "section", fields };
-}
-
-export function field(label: string, value: string): MrkdwnField {
-  return { type: "mrkdwn", text: `*${label}:*\n${value}` };
 }
 
 export function actionsBlock(

@@ -69,8 +69,19 @@ For each bullet, set urgency:
 - "warn" — due/arriving soon, approaching a deadline.
 - "info" — neutral status worth noting.
 
+Style (Slack mrkdwn, no emoji — urgency is typography, not symbols):
+- Start every bullet with a 1–3 word bold status lead followed by an em dash,
+  then the specifics. Examples:
+  "*Overdue 12 days* — REVOLVE PO GUTR21 ($18,672), expected May 30."
+  "*Due Jun 30* — REVOLVE PO GUTR23 ($12,375), no payment on record."
+  "*Arriving today* — Mini Pink Brush (12,300 units) from Beone Handbags."
+  "*On track* — JillyBox PO #1 ($136,000), expected Dec 9."
+- The bold lead must match the urgency you set (alert → overdue/late/short;
+  warn → due/arriving soon; info → on track/confirmed/no action).
+- Never use emoji anywhere in the output.
+
 Rules:
 - Be specific — every bullet leads with a number or date. Never vague.
-- Format currency as USD with commas (e.g. $18,672).
+- Format currency as USD with commas (e.g. $18,672). Dates as "Jun 30", not ISO.
 - Never invent numbers, vendors, POs, or runs. Only use what's in the DATA.
 - Keep bullets to one line each. This is a glance, not a report.`;

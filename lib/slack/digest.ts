@@ -3,13 +3,13 @@ import type { Block } from "@slack/web-api";
 import { format, parseISO } from "date-fns";
 
 import {
+  actionsBlock,
   blocks,
   contextBlock,
   dividerBlock,
   headerBlock,
   linkButton,
   sectionBlock,
-  sectionWithAccessory,
 } from "@/lib/slack/blocks";
 import { glowUrl } from "@/lib/slack/messages";
 import { formatCount, formatUsd } from "@/lib/format";
@@ -80,12 +80,6 @@ export type DigestReorder = {
   demandDown: DigestDemandDownItem[];
 };
 
-const URGENCY_EMOJI: Record<DigestBullet["urgency"], string> = {
-  alert: "🔴",
-  warn: "🟡",
-  info: "•",
-};
-
 function deltaTag(pct: number | null): string {
   if (pct == null) return "";
   const arrow = pct >= 0 ? "▲" : "▼";
@@ -100,24 +94,28 @@ function prettyDate(iso: string): string {
   }
 }
 
+// Urgency is typography, not symbols: alert/warn bullets render as normal
+// lines (the prompt has the model lead each with a bold status phrase), and
+// info bullets drop into small gray context below.
 function bulletLines(items: DigestBullet[]): string {
-  return items
-    .map((b) => `${URGENCY_EMOJI[b.urgency]} ${b.text}`)
-    .join("\n");
+  return items.map((b) => b.text).join("\n");
 }
 
 function stockLines(items: DigestStockItem[]): string {
   const lines = items.map((s) => {
-    const emoji = s.quantity <= 0 ? "🔴" : "🟡";
+    const lead =
+      s.quantity < 0
+        ? `*Oversold ${s.quantity}*`
+        : s.quantity === 0
+          ? "*Out of stock*"
+          : `*${s.quantity} left*`;
     // Variants often share a product title (and even a variant title), so the
-    // SKU is what keeps two "(wholesale): 0 left" lines distinguishable.
+    // SKU is what keeps two "(wholesale)" lines distinguishable.
     const name = s.variantTitle
       ? `${s.productTitle} — ${s.variantTitle}`
       : s.productTitle;
     const sku = s.sku ? ` \`${s.sku}\`` : "";
-    const qty =
-      s.quantity < 0 ? `${s.quantity} (oversold)` : `${s.quantity} left`;
-    return `${emoji} ${name}${sku}: *${qty}*`;
+    return `${lead} — ${name}${sku}`;
   });
   return [...new Set(lines)].join("\n");
 }
@@ -125,13 +123,12 @@ function stockLines(items: DigestStockItem[]): string {
 function reorderLines(items: DigestReorderItem[]): string {
   return items
     .map((it) => {
-      const emoji = it.status === "order_now" ? "🔴" : "🟡";
-      const label = it.status === "order_now" ? "ORDER NOW" : "order soon";
+      const lead = it.status === "order_now" ? "*Order now*" : "*Order soon*";
       const orderBy = it.orderByDate
-        ? ` · order by *${it.orderByDate}*`
+        ? ` by ${prettyDate(it.orderByDate)}`
         : "";
-      const head = `${emoji} *${it.productTitle}* (${it.sku}) — ${label}: reorder *${formatCount(it.reorderQty)}* units${orderBy} · ${formatCount(it.onHand)} on-hand`;
-      return it.note ? `${head}\n    _${it.note}_` : head;
+      const head = `${lead} — ${it.productTitle} \`${it.sku}\`: reorder ${formatCount(it.reorderQty)} units${orderBy} · ${formatCount(it.onHand)} on hand`;
+      return it.note ? `${head}\n_${it.note}_` : head;
     })
     .join("\n");
 }
@@ -142,21 +139,31 @@ function demandDownLines(items: DigestDemandDownItem[]): string {
       const pct =
         it.yoyGrowth == null
           ? ""
-          : ` (${(it.yoyGrowth * 100).toFixed(0)}% YoY)`;
-      const head = `📉 *${it.productTitle}* (${it.sku}) — demand down${pct}`;
-      return it.note ? `${head}\n    _${it.note}_` : head;
+          : ` ${(it.yoyGrowth * 100).toFixed(0)}% YoY`;
+      const head = `*Demand down${pct}* — ${it.productTitle} \`${it.sku}\``;
+      return it.note ? `${head}\n_${it.note}_` : head;
     })
     .join("\n");
 }
 
-/** Bold title row with a right-aligned View button linking into Glow. */
-function titleRow(title: string, path: string): Block {
-  return sectionWithAccessory(title, linkButton("View", glowUrl(path)));
-}
+// A digest segment: bold title, alert/warn lines as the body, info lines and
+// all-clear states as quiet gray context. No emoji, no per-section buttons —
+// urgency and hierarchy come from typography alone.
+function segment(
+  title: string,
+  items: DigestBullet[],
+  allClear: string,
+): Block[] {
+  const out: Block[] = [sectionBlock(`*${title}*`)];
+  const loud = items.filter((b) => b.urgency !== "info");
+  const quiet = items.filter((b) => b.urgency === "info");
 
-/** Bullets render as a section; an empty list renders as calm gray context. */
-function bodyOrAllClear(body: string, allClear: string): Block {
-  return body ? sectionBlock(body) : contextBlock(`✓ ${allClear}`);
+  if (loud.length > 0) out.push(sectionBlock(bulletLines(loud)));
+  for (const b of quiet) out.push(contextBlock(b.text));
+  if (items.length === 0) out.push(contextBlock(`✓ ${allClear}`));
+
+  out.push(dividerBlock());
+  return out;
 }
 
 export function digestBlocks(input: {
@@ -172,7 +179,7 @@ export function digestBlocks(input: {
 
   const out: Block[] = [
     headerBlock(heading),
-    contextBlock(dateLabel),
+    contextBlock(`${dateLabel} · Glow OS`),
     sectionBlock(`_${narrative.headline}_`),
     dividerBlock(),
   ];
@@ -206,38 +213,28 @@ export function digestBlocks(input: {
       .filter(Boolean)
       .join("  ·  ");
 
-    out.push(titleRow("*💰 Yesterday's sales*", "/dashboard"));
-    out.push(sectionBlock(hero));
+    out.push(sectionBlock("*Sales — yesterday*"), sectionBlock(hero));
     if (detail) out.push(contextBlock(detail));
     if (sales.stale) {
       out.push(
-        contextBlock(`⚠️ Shopify figures as of ${prettyDate(sales.asOfDate)}`),
+        contextBlock(
+          `Shopify figures as of ${prettyDate(sales.asOfDate)} — stale`,
+        ),
       );
     }
     out.push(dividerBlock());
   }
 
-  // Purchase orders — model-selected items needing attention.
+  // Purchase orders + manufacturing — model-selected items needing attention.
   out.push(
-    titleRow("*📦 Purchase orders*", "/purchase-orders"),
-    bodyOrAllClear(bulletLines(narrative.purchaseOrders), "No PO actions needed"),
-    dividerBlock(),
-  );
-
-  // Manufacturing — model-selected run updates.
-  out.push(
-    titleRow("*🏭 Manufacturing*", "/manufacturing"),
-    bodyOrAllClear(
-      bulletLines(narrative.manufacturing),
-      "No manufacturing changes",
-    ),
-    dividerBlock(),
+    ...segment("Purchase orders", narrative.purchaseOrders, "No PO actions needed"),
+    ...segment("Manufacturing", narrative.manufacturing, "No manufacturing changes"),
   );
 
   // Stock alerts — only shown when something is low or oversold.
   if (stock.length > 0) {
     out.push(
-      titleRow("*🚨 Stock alerts*", "/products"),
+      sectionBlock("*Stock*"),
       sectionBlock(stockLines(stock)),
       dividerBlock(),
     );
@@ -254,33 +251,44 @@ export function digestBlocks(input: {
       parts.push(reorderLines(reorder.orderItems));
     }
     if (reorder.demandDown.length > 0) {
-      parts.push(`*Demand down*\n${demandDownLines(reorder.demandDown)}`);
+      parts.push(demandDownLines(reorder.demandDown));
     }
     out.push(
-      titleRow("*📥 Reorder*", "/inventory"),
-      sectionBlock(parts.join("\n\n")),
+      sectionBlock("*Reorder*"),
+      sectionBlock(parts.join("\n")),
       dividerBlock(),
     );
   }
 
-  // Cash — one line; flag stale QuickBooks figures inline.
+  // Cash — one line; flag stale QuickBooks figures in context.
   if (cash) {
     const ar =
       cash.arOver90 != null && cash.arOver90 > 0
         ? `   ·   AR 90+: ${formatUsd(cash.arOver90)}`
         : "";
     out.push(
-      titleRow("*💵 Cash*", "/dashboard"),
+      sectionBlock("*Cash*"),
       sectionBlock(`*${formatUsd(cash.cashPosition)}* on hand${ar}`),
     );
     if (cash.stale) {
       out.push(
         contextBlock(
-          `⚠️ QuickBooks figures as of ${prettyDate(cash.asOfDate)}`,
+          `QuickBooks figures as of ${prettyDate(cash.asOfDate)} — stale, reconnect in Settings`,
         ),
       );
     }
   }
+
+  // One actions row for the whole briefing, primary first.
+  out.push(
+    actionsBlock([
+      {
+        ...linkButton("Open dashboard", glowUrl("/dashboard")),
+        style: "primary" as const,
+      },
+      linkButton("Purchase orders", glowUrl("/purchase-orders")),
+    ]),
+  );
 
   // Footer — data freshness at a glance.
   const asOf = [

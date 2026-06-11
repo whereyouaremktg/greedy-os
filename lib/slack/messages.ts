@@ -1,10 +1,11 @@
 import type { Block } from "@slack/web-api";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
+
 import {
   actionButton,
   actionsBlock,
   blocks,
-  field,
-  fieldsSection,
+  contextBlock,
   headerBlock,
   linkButton,
   sectionBlock,
@@ -18,6 +19,32 @@ export function glowUrl(path: string): string {
   return `${GLOW_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+function prettyDate(iso: string): string {
+  try {
+    return format(parseISO(iso), "MMM d");
+  } catch {
+    return iso;
+  }
+}
+
+/** "due today" / "due tomorrow" / "due Jun 13 (in 3 days)" / "5 days late". */
+function dueDescriptor(iso: string | null): string {
+  if (!iso) return "no due date";
+  let days: number;
+  try {
+    days = differenceInCalendarDays(parseISO(iso), new Date());
+  } catch {
+    return `due ${iso}`;
+  }
+  if (days < 0) {
+    const late = Math.abs(days);
+    return `${late} ${late === 1 ? "day" : "days"} late — was due ${prettyDate(iso)}`;
+  }
+  if (days === 0) return "due today";
+  if (days === 1) return "due tomorrow";
+  return `due ${prettyDate(iso)} (in ${days} days)`;
+}
+
 type PaymentRow = {
   id: string;
   label: string;
@@ -27,47 +54,50 @@ type PaymentRow = {
   poId: string;
 };
 
+// Koala-style: the header carries the whole story (entity + amount + state),
+// metadata sits in gray context, one actions row with the primary move first.
 export function paymentDueBlocks(
   row: PaymentRow,
   opts: { overdue?: boolean; snoozed?: boolean; paid?: boolean } = {},
 ): Block[] {
-  const title = opts.paid
-    ? "PO payment marked paid"
+  const state = opts.paid
+    ? "payment paid"
     : opts.overdue
-      ? "PO payment overdue"
-      : "PO payment due soon";
-
-  const factRows = [
-    field("Vendor", row.vendorName),
-    field("Amount", formatUsd(row.amount, 2)),
-    field("Due", row.due_date ?? "—"),
-  ];
+      ? "payment overdue"
+      : "payment due";
+  const header = headerBlock(
+    `${row.vendorName} — ${formatUsd(row.amount, 2)} ${state}`,
+  );
+  const meta = contextBlock(`${row.label} · Purchase order payment · Glow OS`);
 
   if (opts.paid) {
-    return blocks(
-      headerBlock(title),
-      fieldsSection(factRows),
-      sectionBlock("*Status:* Paid"),
-    );
+    return blocks(header, meta, sectionBlock("*Paid* — recorded just now."));
   }
 
   if (opts.snoozed) {
     return blocks(
-      headerBlock(title),
-      fieldsSection(factRows),
-      sectionBlock("*Status:* Snoozed 3 days"),
+      header,
+      meta,
+      sectionBlock(
+        `*Snoozed* — now ${dueDescriptor(row.due_date)}.`,
+      ),
     );
   }
 
   return blocks(
-    headerBlock(title),
-    fieldsSection(factRows),
+    header,
+    meta,
+    sectionBlock(`*${capitalize(dueDescriptor(row.due_date))}*`),
     actionsBlock([
-      linkButton("Open in Glow", glowUrl("/purchase-orders")),
       actionButton("Mark paid", "mark-payment-paid", row.id, "primary"),
       actionButton("Snooze 3d", "snooze-payment", row.id),
+      linkButton("Open PO", glowUrl(`/purchase-orders#${row.poId}`)),
     ]),
   );
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 type RunRow = {
@@ -77,15 +107,20 @@ type RunRow = {
   vendorName: string;
 };
 
+const STAGE_HEADLINE: Record<string, string> = {
+  in_transit: "now in transit",
+  received: "received",
+};
+
 export function runStageBlocks(row: RunRow): Block[] {
+  const stageLabel =
+    STAGE_HEADLINE[row.stage] ?? row.stage.replace(/_/g, " ");
   return blocks(
-    headerBlock("Manufacturing run update"),
-    fieldsSection([
-      field("Product", row.product_name),
-      field("Stage", row.stage.replace(/_/g, " ")),
-      field("Vendor", row.vendorName),
+    headerBlock(`${row.product_name} — ${stageLabel}`),
+    contextBlock(`${row.vendorName} · Manufacturing run · Glow OS`),
+    actionsBlock([
+      linkButton("Open run", glowUrl(`/manufacturing#${row.id}`)),
     ]),
-    actionsBlock([linkButton("Open in Glow", glowUrl("/manufacturing"))]),
   );
 }
 
@@ -96,12 +131,11 @@ type ArAlertRow = {
 
 export function arOver90Blocks(row: ArAlertRow): Block[] {
   return blocks(
-    headerBlock("AR 90+ alert"),
-    fieldsSection([
-      field("AR 90+", formatUsd(row.ar_aging_over_90, 2)),
-      field("As of", row.as_of_date),
-    ]),
-    actionsBlock([linkButton("Open in Glow", glowUrl("/dashboard"))]),
+    headerBlock(
+      `AR over 90 days — ${formatUsd(row.ar_aging_over_90, 2)}`,
+    ),
+    contextBlock(`QuickBooks · as of ${prettyDate(row.as_of_date)} · Glow OS`),
+    actionsBlock([linkButton("Open dashboard", glowUrl("/dashboard"))]),
   );
 }
 
@@ -122,15 +156,15 @@ export function analystAnswerWithActionsBlocks(
   answer: string,
   actions: Array<{ id: string; label: string; toolName?: string }>,
 ): Block[] {
-  const sections = [sectionBlock(answer)];
-  if (actions.length > 0) {
-    const lines = actions.map((a) => {
-      const page = (a.toolName && TOOL_PAGE[a.toolName]) ?? "/manufacturing";
-      return `• ${a.label} — <${glowUrl(`${page}#${a.id}`)}|Open in Glow>`;
-    });
-    sections.push(sectionBlock(`*Actions taken*\n${lines.join("\n")}`));
+  const out: Block[] = [sectionBlock(answer)];
+  // Each completed write becomes a quiet gray receipt line under the answer.
+  for (const a of actions) {
+    const page = (a.toolName && TOOL_PAGE[a.toolName]) ?? "/manufacturing";
+    out.push(
+      contextBlock(`✓ ${a.label} · <${glowUrl(`${page}#${a.id}`)}|Open in Glow>`),
+    );
   }
-  return blocks(...sections);
+  return blocks(...out);
 }
 
 export function errorBlocks(

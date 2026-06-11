@@ -170,7 +170,7 @@ export async function GET(request: Request) {
     );
 
     const blocks = digestBlocks({
-      heading: "☀️ Glow OS — morning briefing",
+      heading: "Morning briefing",
       dateLabel: format(new Date(), "EEEE, MMMM d"),
       narrative,
       sales,
