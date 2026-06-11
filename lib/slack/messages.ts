@@ -109,16 +109,25 @@ export function analystAnswerBlocks(answer: string): Block[] {
   return blocks(sectionBlock(answer));
 }
 
+const TOOL_PAGE: Record<string, string> = {
+  createVendor: "/vendors",
+  createPurchaseOrder: "/purchase-orders",
+  createProduct: "/products",
+  deactivateProduct: "/products",
+  createCampaign: "/campaigns",
+  addCampaignTask: "/campaigns",
+};
+
 export function analystAnswerWithActionsBlocks(
   answer: string,
-  actions: Array<{ id: string; label: string }>,
+  actions: Array<{ id: string; label: string; toolName?: string }>,
 ): Block[] {
   const sections = [sectionBlock(answer)];
   if (actions.length > 0) {
-    const lines = actions.map(
-      (a) =>
-        `• ${a.label} — <${glowUrl(`/manufacturing#${a.id}`)}|Open in Glow>`,
-    );
+    const lines = actions.map((a) => {
+      const page = (a.toolName && TOOL_PAGE[a.toolName]) ?? "/manufacturing";
+      return `• ${a.label} — <${glowUrl(`${page}#${a.id}`)}|Open in Glow>`;
+    });
     sections.push(sectionBlock(`*Actions taken*\n${lines.join("\n")}`));
   }
   return blocks(...sections);
