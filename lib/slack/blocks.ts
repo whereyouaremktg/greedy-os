@@ -17,6 +17,14 @@ export function sectionBlock(text: string): SectionBlock {
   return { type: "section", text: { type: "mrkdwn", text } };
 }
 
+/** Section with a right-aligned element (e.g. a linkButton "View"). */
+export function sectionWithAccessory(
+  text: string,
+  accessory: SectionBlock["accessory"],
+): SectionBlock {
+  return { type: "section", text: { type: "mrkdwn", text }, accessory };
+}
+
 export function fieldsSection(fields: MrkdwnField[]): SectionBlock {
   return { type: "section", fields };
 }

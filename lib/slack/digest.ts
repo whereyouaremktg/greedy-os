@@ -1,15 +1,15 @@
 import type { Block } from "@slack/web-api";
 
+import { format, parseISO } from "date-fns";
+
 import {
-  actionsBlock,
   blocks,
   contextBlock,
   dividerBlock,
-  field,
-  fieldsSection,
   headerBlock,
   linkButton,
   sectionBlock,
+  sectionWithAccessory,
 } from "@/lib/slack/blocks";
 import { glowUrl } from "@/lib/slack/messages";
 import { formatCount, formatUsd } from "@/lib/format";
@@ -89,30 +89,37 @@ const URGENCY_EMOJI: Record<DigestBullet["urgency"], string> = {
 function deltaTag(pct: number | null): string {
   if (pct == null) return "";
   const arrow = pct >= 0 ? "▲" : "▼";
-  return `  ${arrow} ${Math.abs(pct).toFixed(0)}% vs prior day`;
+  return ` ${arrow} ${Math.abs(pct).toFixed(0)}% vs prior day`;
 }
 
-function bulletLines(items: DigestBullet[], emptyText: string): string {
-  if (items.length === 0) return `_${emptyText}_`;
+function prettyDate(iso: string): string {
+  try {
+    return format(parseISO(iso), "MMM d");
+  } catch {
+    return iso;
+  }
+}
+
+function bulletLines(items: DigestBullet[]): string {
   return items
     .map((b) => `${URGENCY_EMOJI[b.urgency]} ${b.text}`)
     .join("\n");
 }
 
 function stockLines(items: DigestStockItem[]): string {
-  return items
-    .map((s) => {
-      const emoji = s.quantity <= 0 ? "🔴" : "🟡";
-      const name = s.variantTitle
-        ? `${s.productTitle} — ${s.variantTitle}`
-        : s.productTitle;
-      const qty =
-        s.quantity < 0
-          ? `${s.quantity} (oversold)`
-          : `${s.quantity} left`;
-      return `${emoji} ${name}: *${qty}*`;
-    })
-    .join("\n");
+  const lines = items.map((s) => {
+    const emoji = s.quantity <= 0 ? "🔴" : "🟡";
+    // Variants often share a product title (and even a variant title), so the
+    // SKU is what keeps two "(wholesale): 0 left" lines distinguishable.
+    const name = s.variantTitle
+      ? `${s.productTitle} — ${s.variantTitle}`
+      : s.productTitle;
+    const sku = s.sku ? ` \`${s.sku}\`` : "";
+    const qty =
+      s.quantity < 0 ? `${s.quantity} (oversold)` : `${s.quantity} left`;
+    return `${emoji} ${name}${sku}: *${qty}*`;
+  });
+  return [...new Set(lines)].join("\n");
 }
 
 function reorderLines(items: DigestReorderItem[]): string {
@@ -142,6 +149,16 @@ function demandDownLines(items: DigestDemandDownItem[]): string {
     .join("\n");
 }
 
+/** Bold title row with a right-aligned View button linking into Glow. */
+function titleRow(title: string, path: string): Block {
+  return sectionWithAccessory(title, linkButton("View", glowUrl(path)));
+}
+
+/** Bullets render as a section; an empty list renders as calm gray context. */
+function bodyOrAllClear(body: string, allClear: string): Block {
+  return body ? sectionBlock(body) : contextBlock(`✓ ${allClear}`);
+}
+
 export function digestBlocks(input: {
   heading: string;
   dateLabel: string;
@@ -156,73 +173,63 @@ export function digestBlocks(input: {
   const out: Block[] = [
     headerBlock(heading),
     contextBlock(dateLabel),
-    sectionBlock(narrative.headline),
+    sectionBlock(`_${narrative.headline}_`),
     dividerBlock(),
   ];
 
-  // Sales — exact figures rendered as a 2-column field grid.
+  // Sales — hero line with the numbers that matter, detail in small gray text.
   if (sales) {
-    out.push(sectionBlock("*💰 Yesterday's sales*"));
-    out.push(
-      fieldsSection([
-        field(
-          "Revenue",
-          `${formatUsd(sales.revenue)}${deltaTag(sales.revenueDeltaPct)}`,
-        ),
-        field("Orders", formatCount(sales.orderCount)),
-        field(
-          "DTC",
-          sales.dtcRevenue == null ? "—" : formatUsd(sales.dtcRevenue),
-        ),
-        field(
-          "Wholesale",
-          sales.wholesaleRevenue == null
-            ? "—"
-            : `${formatUsd(sales.wholesaleRevenue)} · ${formatCount(sales.wholesaleOrderCount ?? 0)} orders`,
-        ),
-        field("AOV", formatUsd(sales.aov, 2)),
-        field(
-          "Conversion",
-          sales.conversionRate == null
-            ? "—"
-            : `${(sales.conversionRate * 100).toFixed(1)}%${
-                sales.sessions != null
-                  ? ` · ${formatCount(sales.sessions)} sessions`
-                  : ""
-              }`,
-        ),
-        field(
-          "New / returning",
-          sales.newCustomers == null && sales.returningCustomers == null
-            ? "—"
-            : `${formatCount(sales.newCustomers ?? 0)} new · ${formatCount(sales.returningCustomers ?? 0)} returning`,
-        ),
-      ]),
-    );
+    const hero = [
+      `*${formatUsd(sales.revenue)}*${deltaTag(sales.revenueDeltaPct)}`,
+      `*${formatCount(sales.orderCount)}* orders`,
+      sales.aov != null ? `AOV ${formatUsd(sales.aov, 2)}` : null,
+    ]
+      .filter(Boolean)
+      .join("   ·   ");
+
+    const detail = [
+      sales.dtcRevenue != null ? `DTC ${formatUsd(sales.dtcRevenue)}` : null,
+      sales.wholesaleRevenue != null
+        ? `Wholesale ${formatUsd(sales.wholesaleRevenue)} (${formatCount(sales.wholesaleOrderCount ?? 0)} orders)`
+        : null,
+      sales.conversionRate != null
+        ? `${(sales.conversionRate * 100).toFixed(1)}% conv${
+            sales.sessions != null
+              ? ` of ${formatCount(sales.sessions)} sessions`
+              : ""
+          }`
+        : null,
+      sales.newCustomers != null || sales.returningCustomers != null
+        ? `${formatCount(sales.newCustomers ?? 0)} new / ${formatCount(sales.returningCustomers ?? 0)} returning`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("  ·  ");
+
+    out.push(titleRow("*💰 Yesterday's sales*", "/dashboard"));
+    out.push(sectionBlock(hero));
+    if (detail) out.push(contextBlock(detail));
     if (sales.stale) {
-      out.push(contextBlock(`⚠️ Shopify figures as of ${sales.asOfDate}`));
+      out.push(
+        contextBlock(`⚠️ Shopify figures as of ${prettyDate(sales.asOfDate)}`),
+      );
     }
     out.push(dividerBlock());
   }
 
-  // Purchase orders — model-selected, with a link to the board.
+  // Purchase orders — model-selected items needing attention.
   out.push(
-    sectionBlock(
-      `*📦 Purchase orders*  <${glowUrl("/purchase-orders")}|view>\n${bulletLines(
-        narrative.purchaseOrders,
-        "No PO actions needed.",
-      )}`,
-    ),
+    titleRow("*📦 Purchase orders*", "/purchase-orders"),
+    bodyOrAllClear(bulletLines(narrative.purchaseOrders), "No PO actions needed"),
     dividerBlock(),
   );
 
-  // Manufacturing — model-selected, with a link to the page.
+  // Manufacturing — model-selected run updates.
   out.push(
-    sectionBlock(
-      `*🏭 Manufacturing*  <${glowUrl("/manufacturing")}|view>\n${bulletLines(
-        narrative.manufacturing,
-        "No manufacturing changes.",
-      )}`,
+    titleRow("*🏭 Manufacturing*", "/manufacturing"),
+    bodyOrAllClear(
+      bulletLines(narrative.manufacturing),
+      "No manufacturing changes",
     ),
     dividerBlock(),
   );
@@ -230,60 +237,59 @@ export function digestBlocks(input: {
   // Stock alerts — only shown when something is low or oversold.
   if (stock.length > 0) {
     out.push(
-      sectionBlock(
-        `*📦 Stock alerts*  <${glowUrl("/products")}|view>\n${stockLines(stock)}`,
-      ),
+      titleRow("*🚨 Stock alerts*", "/products"),
+      sectionBlock(stockLines(stock)),
       dividerBlock(),
     );
   }
 
   // Inventory / reorder — deterministic forecast: order_now / order_soon SKUs
   // with computed order-by date + reorder qty, plus demand-down flags.
-  if (reorder && (reorder.orderItems.length > 0 || reorder.demandDown.length > 0)) {
+  if (
+    reorder &&
+    (reorder.orderItems.length > 0 || reorder.demandDown.length > 0)
+  ) {
     const parts: string[] = [];
     if (reorder.orderItems.length > 0) {
       parts.push(reorderLines(reorder.orderItems));
-    } else {
-      parts.push("_No SKUs need ordering this week._");
     }
     if (reorder.demandDown.length > 0) {
       parts.push(`*Demand down*\n${demandDownLines(reorder.demandDown)}`);
     }
     out.push(
-      sectionBlock(
-        `*📥 Inventory / reorder*  <${glowUrl("/inventory")}|view>\n${parts.join("\n\n")}`,
-      ),
+      titleRow("*📥 Reorder*", "/inventory"),
+      sectionBlock(parts.join("\n\n")),
       dividerBlock(),
     );
   }
 
-  // Cash.
+  // Cash — one line; flag stale QuickBooks figures inline.
   if (cash) {
-    const arLine =
+    const ar =
       cash.arOver90 != null && cash.arOver90 > 0
-        ? `\nAR 90+: ${formatUsd(cash.arOver90)}`
+        ? `   ·   AR 90+: ${formatUsd(cash.arOver90)}`
         : "";
     out.push(
-      sectionBlock(
-        `*💵 Cash*\n*${formatUsd(cash.cashPosition)}* on hand${arLine}`,
-      ),
+      titleRow("*💵 Cash*", "/dashboard"),
+      sectionBlock(`*${formatUsd(cash.cashPosition)}* on hand${ar}`),
     );
+    if (cash.stale) {
+      out.push(
+        contextBlock(
+          `⚠️ QuickBooks figures as of ${prettyDate(cash.asOfDate)}`,
+        ),
+      );
+    }
   }
 
-  // Footer + actions.
+  // Footer — data freshness at a glance.
   const asOf = [
-    sales ? `Sales ${sales.asOfDate}` : null,
-    cash ? `Cash ${cash.asOfDate}` : null,
+    sales ? `Sales ${prettyDate(sales.asOfDate)}` : null,
+    cash ? `Cash ${prettyDate(cash.asOfDate)}` : null,
   ]
     .filter(Boolean)
-    .join(" · ");
-  out.push(
-    contextBlock(`${asOf}${asOf ? " · " : ""}Glow OS`),
-    actionsBlock([
-      linkButton("Open dashboard", glowUrl("/dashboard")),
-      linkButton("Purchase orders", glowUrl("/purchase-orders")),
-    ]),
-  );
+    .join("  ·  ");
+  out.push(contextBlock(`Glow OS${asOf ? `  ·  ${asOf}` : ""}`));
 
   return blocks(...out);
 }
