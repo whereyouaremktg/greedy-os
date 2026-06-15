@@ -15,6 +15,7 @@ export type PoRow = {
   ship_date: string | null;
   tracking_number: string | null;
   carrier: string | null;
+  labels_ordered: boolean;
   total: number;
   vendor_name: string;
   line_item_count: number;

@@ -27,7 +27,7 @@ export default async function PurchaseOrdersPage({
     .from("purchase_orders")
     .select(
       `id, po_number, status, order_date, expected_date, ship_date,
-       tracking_number, carrier, total, updated_at,
+       tracking_number, carrier, labels_ordered, total, updated_at,
        vendors!inner ( name ),
        po_line_items ( quantity ),
        po_payments ( amount, paid )`,
@@ -63,6 +63,7 @@ export default async function PurchaseOrdersPage({
       ship_date: row.ship_date,
       tracking_number: row.tracking_number,
       carrier: row.carrier,
+      labels_ordered: row.labels_ordered,
       total: row.total,
       vendor_name:
         (row.vendors as { name: string } | null)?.name ?? "Unknown buyer",

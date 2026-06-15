@@ -175,6 +175,36 @@ function PaymentCallout({ order }: { order: PoRow }) {
   );
 }
 
+// Retailers like Anthropologie require buying compliance labels from their
+// supplier before shipping. Surface that step on the card.
+function buyerNeedsLabels(vendorName: string): boolean {
+  return /anthro/i.test(vendorName);
+}
+
+function LabelsChip({ order }: { order: PoRow }) {
+  if (order.labels_ordered) {
+    return (
+      <Badge
+        variant="secondary"
+        className="mt-2 h-5 px-1.5 text-[10px] text-emerald-600 dark:text-emerald-400"
+      >
+        Labels ordered
+      </Badge>
+    );
+  }
+  if (buyerNeedsLabels(order.vendor_name)) {
+    return (
+      <Badge
+        variant="outline"
+        className="mt-2 h-5 border-amber-500/40 px-1.5 text-[10px] text-amber-600 dark:text-amber-400"
+      >
+        Labels needed
+      </Badge>
+    );
+  }
+  return null;
+}
+
 function PoCardContent({
   order,
   isDragging = false,
@@ -209,6 +239,7 @@ function PoCardContent({
       <CancelCallout expectedDate={order.expected_date} status={order.status} />
       <ShipmentCallout order={order} />
       <PaymentCallout order={order} />
+      <LabelsChip order={order} />
     </div>
   );
 }
