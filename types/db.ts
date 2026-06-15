@@ -503,6 +503,9 @@ export type Database = {
           currency: string
           expected_date: string | null
           id: string
+          labels_cost: number | null
+          labels_note: string | null
+          labels_ordered: boolean
           notes: string | null
           order_date: string | null
           po_number: string | null
@@ -521,6 +524,9 @@ export type Database = {
           currency?: string
           expected_date?: string | null
           id?: string
+          labels_cost?: number | null
+          labels_note?: string | null
+          labels_ordered?: boolean
           notes?: string | null
           order_date?: string | null
           po_number?: string | null
@@ -539,6 +545,9 @@ export type Database = {
           currency?: string
           expected_date?: string | null
           id?: string
+          labels_cost?: number | null
+          labels_note?: string | null
+          labels_ordered?: boolean
           notes?: string | null
           order_date?: string | null
           po_number?: string | null

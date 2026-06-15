@@ -22,8 +22,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { formatUsd } from "@/lib/format";
-import { updatePoShipment } from "@/lib/actions/purchase-orders";
+import {
+  updatePoLabels,
+  updatePoLineCosts,
+  updatePoShipment,
+} from "@/lib/actions/purchase-orders";
 import {
   formatPoStatusLabel,
   type PoStatus,
@@ -38,6 +43,9 @@ export type PoDetail = {
   ship_date: string | null;
   tracking_number: string | null;
   carrier: string | null;
+  labels_ordered: boolean;
+  labels_cost: number | null;
+  labels_note: string | null;
   subtotal: number;
   total: number;
   notes: string | null;
@@ -162,6 +170,190 @@ function ShipmentForm({
   );
 }
 
+function LabelsForm({
+  detail,
+  onSaved,
+}: {
+  detail: PoDetail;
+  onSaved?: () => void;
+}) {
+  const [ordered, setOrdered] = React.useState(detail.labels_ordered);
+  const [cost, setCost] = React.useState(
+    detail.labels_cost != null ? String(detail.labels_cost) : "",
+  );
+  const [note, setNote] = React.useState(detail.labels_note ?? "");
+  const [pending, startTransition] = React.useTransition();
+
+  React.useEffect(() => {
+    setOrdered(detail.labels_ordered);
+    setCost(detail.labels_cost != null ? String(detail.labels_cost) : "");
+    setNote(detail.labels_note ?? "");
+  }, [detail]);
+
+  function handleSave() {
+    const trimmedCost = cost.trim();
+    const parsedCost = trimmedCost === "" ? null : Number(trimmedCost);
+    if (parsedCost != null && !Number.isFinite(parsedCost)) {
+      toast.error("Label cost must be a number");
+      return;
+    }
+    startTransition(async () => {
+      const result = await updatePoLabels({
+        id: detail.id,
+        labels_ordered: ordered,
+        labels_cost: parsedCost,
+        labels_note: note.trim() || null,
+      });
+      if (result.ok) {
+        toast.success("Labels updated");
+        onSaved?.();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border p-4">
+      <div>
+        <h3 className="text-sm font-medium">Labels</h3>
+        <p className="text-xs text-muted-foreground">
+          Compliance labels purchased from the retailer&apos;s supplier (e.g.
+          Anthropologie) before shipping.
+        </p>
+      </div>
+      <div className="flex items-center justify-between">
+        <Label htmlFor="po-labels-ordered">Labels ordered</Label>
+        <Switch
+          id="po-labels-ordered"
+          checked={ordered}
+          onCheckedChange={setOrdered}
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="po-labels-cost">Label cost</Label>
+          <Input
+            id="po-labels-cost"
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="po-labels-note">Supplier / reference</Label>
+          <Input
+            id="po-labels-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Supplier, order #…"
+          />
+        </div>
+      </div>
+      <Button size="sm" onClick={handleSave} disabled={pending}>
+        {pending ? "Saving…" : "Save labels"}
+      </Button>
+    </div>
+  );
+}
+
+function CostsForm({
+  detail,
+  onSaved,
+}: {
+  detail: PoDetail;
+  onSaved?: () => void;
+}) {
+  const [costs, setCosts] = React.useState<Record<string, string>>({});
+  const [pending, startTransition] = React.useTransition();
+
+  React.useEffect(() => {
+    setCosts(
+      Object.fromEntries(
+        detail.line_items.map((li) => [li.id, String(li.unit_cost)]),
+      ),
+    );
+  }, [detail]);
+
+  const previewTotal = detail.line_items.reduce((sum, li) => {
+    const raw = costs[li.id];
+    const cost = raw === "" || raw == null ? 0 : Number(raw);
+    return sum + li.quantity * (Number.isFinite(cost) ? cost : 0);
+  }, 0);
+
+  function handleSave() {
+    const lines = detail.line_items.map((li) => {
+      const raw = costs[li.id];
+      const cost = raw === "" || raw == null ? 0 : Number(raw);
+      return { id: li.id, unit_cost: Number.isFinite(cost) ? cost : 0 };
+    });
+    startTransition(async () => {
+      const result = await updatePoLineCosts({ id: detail.id, lines });
+      if (result.ok) {
+        toast.success("Costs updated");
+        onSaved?.();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border p-4">
+      <div>
+        <h3 className="text-sm font-medium">Edit unit costs</h3>
+        <p className="text-xs text-muted-foreground">
+          Fill in per-unit costs (e.g. on an uploaded PO) — the total recomputes
+          automatically.
+        </p>
+      </div>
+      <div className="space-y-2">
+        {detail.line_items.map((li) => (
+          <div key={li.id} className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">
+                {li.product_name}
+              </div>
+              <div className="text-xs text-muted-foreground num">
+                {li.quantity.toLocaleString()} units
+                {li.sku ? ` · ${li.sku}` : ""}
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">$</span>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                className="h-8 w-24"
+                value={costs[li.id] ?? ""}
+                onChange={(e) =>
+                  setCosts((prev) => ({ ...prev, [li.id]: e.target.value }))
+                }
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between border-t pt-3">
+        <span className="text-sm text-muted-foreground">New total</span>
+        <span className="num text-sm font-medium">
+          {formatUsd(previewTotal, 2)}
+        </span>
+      </div>
+      <Button size="sm" onClick={handleSave} disabled={pending}>
+        {pending ? "Saving…" : "Save costs"}
+      </Button>
+    </div>
+  );
+}
+
 export function PoDetailSheet({
   detail,
   loading,
@@ -225,6 +417,8 @@ export function PoDetailSheet({
             </dl>
 
             <ShipmentForm detail={detail} onSaved={onSaved} />
+
+            <LabelsForm detail={detail} onSaved={onSaved} />
 
             {detail.payments.length > 0 ? (
               <div className="rounded-md border">
@@ -307,6 +501,10 @@ export function PoDetailSheet({
                 </TableBody>
               </Table>
             </div>
+
+            {detail.line_items.length > 0 ? (
+              <CostsForm detail={detail} onSaved={onSaved} />
+            ) : null}
           </div>
         ) : null}
       </SheetContent>

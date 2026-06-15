@@ -8,6 +8,8 @@ import { revalidateTimelinePaths } from "@/lib/timeline/revalidate";
 import {
   createPurchaseOrderCore,
   fetchPurchaseOrderDetail,
+  updatePoLabelsCore,
+  updatePoLineCostsCore,
   updatePoShipmentCore,
   updatePoStatusCore,
 } from "@/lib/purchase-orders/core";
@@ -178,5 +180,75 @@ export async function updatePoShipment(
 
   revalidatePath("/purchase-orders");
 
+  return { ok: true, data: result.data };
+}
+
+const updatePoLabelsSchema = z.object({
+  id: z.string().uuid(),
+  labels_ordered: z.boolean().optional(),
+  labels_cost: z.number().nonnegative().nullable().optional(),
+  labels_note: z.string().max(2000).nullable().optional(),
+});
+
+export async function updatePoLabels(
+  input: z.infer<typeof updatePoLabelsSchema>,
+): Promise<
+  ActionResult<{
+    id: string;
+    labels_ordered: boolean;
+    labels_cost: number | null;
+    labels_note: string | null;
+  }>
+> {
+  const parsed = updatePoLabelsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: flattenZod(parsed.error) };
+  }
+
+  const { id, ...labels } = parsed.data;
+  const supabase = await createClient();
+  const result = await updatePoLabelsCore(supabase, id, labels);
+
+  if (!result.ok) {
+    return { ok: false, error: result.error.message };
+  }
+
+  revalidatePath("/purchase-orders");
+  return { ok: true, data: result.data };
+}
+
+const updatePoLineCostsSchema = z.object({
+  id: z.string().uuid(),
+  lines: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        unit_cost: z.number().nonnegative(),
+      }),
+    )
+    .min(1),
+});
+
+export async function updatePoLineCosts(
+  input: z.infer<typeof updatePoLineCostsSchema>,
+): Promise<ActionResult<{ id: string; total: number }>> {
+  const parsed = updatePoLineCostsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: flattenZod(parsed.error) };
+  }
+
+  const supabase = await createClient();
+  const result = await updatePoLineCostsCore(
+    supabase,
+    parsed.data.id,
+    parsed.data.lines,
+  );
+
+  if (!result.ok) {
+    return { ok: false, error: result.error.message };
+  }
+
+  revalidateTimelinePaths();
+  revalidatePath("/purchase-orders");
   return { ok: true, data: result.data };
 }

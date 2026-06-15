@@ -231,6 +231,110 @@ export async function updatePoShipmentCore(
   return { ok: true, data };
 }
 
+export type UpdatePoLabelsInput = {
+  labels_ordered?: boolean;
+  labels_cost?: number | null;
+  labels_note?: string | null;
+};
+
+export async function updatePoLabelsCore(
+  supabase: Client,
+  id: string,
+  input: UpdatePoLabelsInput,
+): Promise<
+  PoCoreResult<{
+    id: string;
+    labels_ordered: boolean;
+    labels_cost: number | null;
+    labels_note: string | null;
+  }>
+> {
+  const patch: Database["public"]["Tables"]["purchase_orders"]["Update"] = {};
+  if ("labels_ordered" in input) patch.labels_ordered = input.labels_ordered;
+  if ("labels_cost" in input) patch.labels_cost = input.labels_cost ?? null;
+  if ("labels_note" in input) {
+    patch.labels_note = input.labels_note?.trim() || null;
+  }
+
+  const { data, error } = await supabase
+    .from("purchase_orders")
+    .update(patch)
+    .eq("id", id)
+    .select("id, labels_ordered, labels_cost, labels_note")
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, error: dbError(error, "Failed to update labels") };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      error: { code: "NOT_FOUND", message: "Purchase order not found" },
+    };
+  }
+  return { ok: true, data };
+}
+
+/**
+ * Update per-line unit costs (e.g. filling in prices on an uploaded PO that came
+ * in with $0 costs), then recompute the PO subtotal/total and each line_total
+ * from quantity × unit cost.
+ */
+export async function updatePoLineCostsCore(
+  supabase: Client,
+  id: string,
+  costs: Array<{ id: string; unit_cost: number }>,
+): Promise<PoCoreResult<{ id: string; total: number }>> {
+  // Apply each line's new unit cost (scoped to this PO so a stray id can't
+  // touch another order's lines).
+  for (const c of costs) {
+    const { error } = await supabase
+      .from("po_line_items")
+      .update({ unit_cost: c.unit_cost })
+      .eq("id", c.id)
+      .eq("purchase_order_id", id);
+    if (error) {
+      return { ok: false, error: dbError(error, "Failed to update line cost") };
+    }
+  }
+
+  // Recompute line_total + PO subtotal/total from current lines.
+  const { data: lines, error: linesError } = await supabase
+    .from("po_line_items")
+    .select("id, quantity, unit_cost")
+    .eq("purchase_order_id", id);
+
+  if (linesError) {
+    return { ok: false, error: dbError(linesError, "Failed to reload lines") };
+  }
+
+  let total = 0;
+  for (const line of lines ?? []) {
+    const lineTotal =
+      Math.round(Number(line.quantity) * Number(line.unit_cost) * 100) / 100;
+    total += lineTotal;
+    const { error: ltError } = await supabase
+      .from("po_line_items")
+      .update({ line_total: lineTotal })
+      .eq("id", line.id);
+    if (ltError) {
+      return { ok: false, error: dbError(ltError, "Failed to update line total") };
+    }
+  }
+  total = Math.round(total * 100) / 100;
+
+  const { error: poError } = await supabase
+    .from("purchase_orders")
+    .update({ subtotal: total, total })
+    .eq("id", id);
+
+  if (poError) {
+    return { ok: false, error: dbError(poError, "Failed to update PO total") };
+  }
+
+  return { ok: true, data: { id, total } };
+}
+
 export type PoPaymentRow = {
   id: string;
   label: string;
@@ -256,6 +360,9 @@ export async function fetchPurchaseOrderDetail(
     ship_date: string | null;
     tracking_number: string | null;
     carrier: string | null;
+    labels_ordered: boolean;
+    labels_cost: number | null;
+    labels_note: string | null;
     vendor_name: string;
     payments: PoPaymentRow[];
     line_items: Array<{
@@ -277,6 +384,7 @@ export async function fetchPurchaseOrderDetail(
     .select(
       `id, po_number, status, order_date, expected_date, subtotal, total, notes,
        ship_date, tracking_number, carrier,
+       labels_ordered, labels_cost, labels_note,
        vendors!inner ( name ),
        po_payments ( id, label, amount, due_date, paid, paid_date ),
        po_line_items (
@@ -321,6 +429,9 @@ export async function fetchPurchaseOrderDetail(
       ship_date: data.ship_date,
       tracking_number: data.tracking_number,
       carrier: data.carrier,
+      labels_ordered: data.labels_ordered,
+      labels_cost: data.labels_cost,
+      labels_note: data.labels_note,
       vendor_name: (data.vendors as { name: string }).name,
       payments: payments.map((p) => ({
         id: p.id,
