@@ -294,7 +294,7 @@ function CostsForm({
     startTransition(async () => {
       const result = await updatePoLineCosts({ id: detail.id, lines });
       if (result.ok) {
-        toast.success("Costs updated");
+        toast.success("Unit prices updated");
         onSaved?.();
       } else {
         toast.error(result.error);
@@ -305,10 +305,10 @@ function CostsForm({
   return (
     <div className="space-y-3 rounded-md border p-4">
       <div>
-        <h3 className="text-sm font-medium">Edit unit costs</h3>
+        <h3 className="text-sm font-medium">Unit pricing</h3>
         <p className="text-xs text-muted-foreground">
-          Fill in per-unit costs (e.g. on an uploaded PO) — the total recomputes
-          automatically.
+          The per-unit price the buyer pays you (e.g. $14.85) — fill it in on an
+          uploaded PO and the total recomputes automatically.
         </p>
       </div>
       <div className="space-y-2">
@@ -348,7 +348,7 @@ function CostsForm({
         </span>
       </div>
       <Button size="sm" onClick={handleSave} disabled={pending}>
-        {pending ? "Saving…" : "Save costs"}
+        {pending ? "Saving…" : "Save pricing"}
       </Button>
     </div>
   );
@@ -474,7 +474,7 @@ export function PoDetailSheet({
                   <TableRow>
                     <TableHead>Product</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Unit</TableHead>
+                    <TableHead className="text-right">Unit price</TableHead>
                     <TableHead className="text-right">Cancel</TableHead>
                   </TableRow>
                 </TableHeader>
