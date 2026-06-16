@@ -15,6 +15,9 @@ const config: VercelConfig = {
     { path: "/api/cron/shopify-sales-history", schedule: "0 11 * * 1" },
     { path: "/api/cron/klaviyo", schedule: "0 */4 * * *" },
     { path: "/api/cron/hubspot", schedule: "0 */6 * * *" },
+    // ShipHero (Retroship 3PL): on-hand + inbound POs + wholesale orders. Every
+    // 6h — polite to the shared ShipHero credit bucket (it's Retroship's account).
+    { path: "/api/cron/shiphero", schedule: "0 */6 * * *" },
     { path: "/api/cron/slack-triggers", schedule: "*/15 * * * *" },
     // Daily morning briefing — re-enabled at Paul's request (June 2026), now
     // every day (sales move on weekends too). 13:00 UTC = 9am ET.

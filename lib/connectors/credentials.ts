@@ -89,6 +89,20 @@ export const CONNECTORS = [
     ],
   },
   {
+    id: "shiphero",
+    label: "ShipHero (Retroship 3PL)",
+    description: "True on-hand, inbound POs, and actual wholesale orders.",
+    fields: [
+      {
+        key: "SHIPHERO_REFRESH_TOKEN",
+        label: "Refresh Token",
+        type: "secret" as const,
+        required: true,
+        hint: "From ShipHero → Account → API. Long-lived; the puller exchanges it for a 28-day access token each run.",
+      },
+    ],
+  },
+  {
     id: "quickbooks",
     label: "QuickBooks",
     description: "Cash, AR/AP, P&L. OAuth via Intuit.",
