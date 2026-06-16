@@ -211,6 +211,36 @@ export type Database = {
         }
         Relationships: []
       }
+      inbound_email_log: {
+        Row: {
+          error: string | null
+          message_id: string
+          po_id: string | null
+          received_at: string
+          sender: string | null
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          error?: string | null
+          message_id: string
+          po_id?: string | null
+          received_at?: string
+          sender?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          error?: string | null
+          message_id?: string
+          po_id?: string | null
+          received_at?: string
+          sender?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Relationships: []
+      }
       klaviyo_metrics: {
         Row: {
           affiliate_revenue: number | null

@@ -9,6 +9,28 @@ import {
 
 type ImageMediaType = "image/png" | "image/jpeg" | "image/webp";
 
+/** Parse a structured object straight from plain text (e.g. an email body). */
+export async function generateObjectFromText<T>({
+  schema,
+  prompt,
+  text,
+}: {
+  schema: z.ZodType<T>;
+  prompt: string;
+  text: string;
+}): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
+  try {
+    const { object } = await generateObject({
+      model: GLOW_PARSE_MODEL,
+      schema,
+      prompt: `${prompt}\n\n---\nEMAIL CONTENT:\n${text}`,
+    });
+    return { ok: true, data: object };
+  } catch (err) {
+    return { ok: false, error: formatDocumentParseError(err) };
+  }
+}
+
 export async function generateObjectFromDocument<T>({
   schema,
   prompt,

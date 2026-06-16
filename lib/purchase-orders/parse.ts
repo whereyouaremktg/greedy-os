@@ -2,7 +2,10 @@ import {
   parsedPurchaseOrderSchema,
   type ParsedPurchaseOrder,
 } from "@/lib/purchase-orders/schema";
-import { generateObjectFromDocument } from "@/lib/documents/parse-with-llm";
+import {
+  generateObjectFromDocument,
+  generateObjectFromText,
+} from "@/lib/documents/parse-with-llm";
 
 const PARSE_PROMPT = `You are extracting a structured wholesale purchase order from this document. It is an order that a retailer/buyer (e.g. REVOLVE, Anthropologie, a boutique, a distributor) is placing with Glow Beauty (the seller). The format VARIES widely — it may be a formal PO PDF, a screenshot, a photo, or an EMAIL containing a reorder request with a small table. It may span multiple pages. Read the ENTIRE document and capture EVERY product line — do not stop at the first page or truncate the list.
 
@@ -50,5 +53,16 @@ export async function parsePurchaseOrderDocument(
     buffer,
     mediaType,
     kind,
+  });
+}
+
+/** Parse a PO out of an email body (e.g. a forwarded inline reorder table). */
+export async function parsePurchaseOrderText(
+  text: string,
+): Promise<ParsePurchaseOrderResult> {
+  return generateObjectFromText({
+    schema: parsedPurchaseOrderSchema,
+    prompt: PARSE_PROMPT,
+    text,
   });
 }
