@@ -12,8 +12,8 @@ import { fullReplace, mirrorDb } from "@/lib/shiphero/mirror-db";
 
 const SHOP_NAME = "Manual Order";
 // Per-operation complexity ~= outer_first * (1 + nested_first), capped at 4004.
-const PAGE_SIZE = 10;
-const LINES_PER_ORDER = 15;
+const PAGE_SIZE = 20;
+const LINES_PER_ORDER = 10;
 const LOOKBACK_DAYS = 540; // ~18 months
 const WHOLESALE_QTY_FLOOR = 12; // bulk threshold when price is $0 (no-charge POs)
 

@@ -4,7 +4,8 @@ import { runShipHeroInboundPull } from "@/lib/pullers/shiphero-inbound";
 import { runShipHeroWholesalePull } from "@/lib/pullers/shiphero-wholesale";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Three sequential paginated pulls with credit-based pacing — give it room.
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
