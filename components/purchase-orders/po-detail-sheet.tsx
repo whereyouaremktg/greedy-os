@@ -22,17 +22,30 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { formatUsd } from "@/lib/format";
 import {
+  updatePoDetails,
   updatePoLabels,
   updatePoLineCosts,
   updatePoShipment,
 } from "@/lib/actions/purchase-orders";
 import {
-  formatPoStatusLabel,
+  PO_STATUS_LABELS,
   type PoStatus,
 } from "@/lib/purchase-orders/statuses";
+
+const PO_STATUS_OPTIONS: PoStatus[] = [
+  "draft",
+  "confirmed",
+  "in_fulfillment",
+  "shipped",
+  "partially_received",
+  "received",
+  "closed",
+  "cancelled",
+];
 
 export type PoDetail = {
   id: string;
@@ -165,6 +178,99 @@ function ShipmentForm({
       </div>
       <Button size="sm" onClick={handleSave} disabled={pending}>
         {pending ? "Saving…" : "Save shipment"}
+      </Button>
+    </div>
+  );
+}
+
+function DetailsForm({
+  detail,
+  onSaved,
+}: {
+  detail: PoDetail;
+  onSaved?: () => void;
+}) {
+  const [poNumber, setPoNumber] = React.useState(detail.po_number ?? "");
+  const [status, setStatus] = React.useState<PoStatus>(
+    detail.status as PoStatus,
+  );
+  const [orderDate, setOrderDate] = React.useState(detail.order_date ?? "");
+  const [cancelDate, setCancelDate] = React.useState(detail.expected_date ?? "");
+  const [pending, startTransition] = React.useTransition();
+
+  React.useEffect(() => {
+    setPoNumber(detail.po_number ?? "");
+    setStatus(detail.status as PoStatus);
+    setOrderDate(detail.order_date ?? "");
+    setCancelDate(detail.expected_date ?? "");
+  }, [detail]);
+
+  function handleSave() {
+    startTransition(async () => {
+      const result = await updatePoDetails({
+        id: detail.id,
+        po_number: poNumber.trim() || null,
+        status,
+        order_date: orderDate.trim() || null,
+        expected_date: cancelDate.trim() || null,
+      });
+      if (result.ok) {
+        toast.success("Details updated");
+        onSaved?.();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border p-4">
+      <h3 className="text-sm font-medium">Details</h3>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="po-number">PO #</Label>
+          <Input
+            id="po-number"
+            value={poNumber}
+            onChange={(e) => setPoNumber(e.target.value)}
+            placeholder="PO number"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="po-status">Status</Label>
+          <Select
+            id="po-status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as PoStatus)}
+          >
+            {PO_STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {PO_STATUS_LABELS[s]}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="po-order-date">Order date</Label>
+          <Input
+            id="po-order-date"
+            type="date"
+            value={orderDate}
+            onChange={(e) => setOrderDate(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="po-cancel-date">Latest cancel</Label>
+          <Input
+            id="po-cancel-date"
+            type="date"
+            value={cancelDate}
+            onChange={(e) => setCancelDate(e.target.value)}
+          />
+        </div>
+      </div>
+      <Button size="sm" onClick={handleSave} disabled={pending}>
+        {pending ? "Saving…" : "Save details"}
       </Button>
     </div>
   );
@@ -385,36 +491,24 @@ export function PoDetailSheet({
           <p className="mt-6 text-sm text-destructive">{error}</p>
         ) : detail ? (
           <div className="mt-6 space-y-6">
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <dl className="grid grid-cols-3 gap-3 rounded-md border bg-muted/20 p-3 text-sm">
               <div>
-                <dt className="text-muted-foreground">Status</dt>
-                <dd>{formatPoStatusLabel(detail.status as PoStatus)}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Order date</dt>
-                <dd>{formatDate(detail.order_date)}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Latest cancel</dt>
-                <dd className="text-destructive">
-                  {formatDate(detail.expected_date)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Total</dt>
+                <dt className="text-muted-foreground text-xs">Total</dt>
                 <dd className="num font-medium">
                   {formatUsd(detail.total, 2)}
                 </dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Units</dt>
+                <dt className="text-muted-foreground text-xs">Units</dt>
                 <dd className="num">{totalUnits.toLocaleString()}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Styles</dt>
+                <dt className="text-muted-foreground text-xs">Styles</dt>
                 <dd className="num">{detail.line_items.length}</dd>
               </div>
             </dl>
+
+            <DetailsForm detail={detail} onSaved={onSaved} />
 
             <ShipmentForm detail={detail} onSaved={onSaved} />
 

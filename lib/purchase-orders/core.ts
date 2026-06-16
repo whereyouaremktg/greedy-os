@@ -231,6 +231,43 @@ export async function updatePoShipmentCore(
   return { ok: true, data };
 }
 
+export type UpdatePoDetailsInput = {
+  po_number?: string | null;
+  status?: PoStatus;
+  order_date?: string | null;
+  expected_date?: string | null;
+};
+
+export async function updatePoDetailsCore(
+  supabase: Client,
+  id: string,
+  input: UpdatePoDetailsInput,
+): Promise<PoCoreResult<{ id: string }>> {
+  const patch: Database["public"]["Tables"]["purchase_orders"]["Update"] = {};
+  if ("po_number" in input) patch.po_number = input.po_number?.trim() || null;
+  if ("status" in input && input.status) patch.status = input.status;
+  if ("order_date" in input) patch.order_date = input.order_date || null;
+  if ("expected_date" in input) patch.expected_date = input.expected_date || null;
+
+  const { data, error } = await supabase
+    .from("purchase_orders")
+    .update(patch)
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, error: dbError(error, "Failed to update details") };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      error: { code: "NOT_FOUND", message: "Purchase order not found" },
+    };
+  }
+  return { ok: true, data };
+}
+
 export type UpdatePoLabelsInput = {
   labels_ordered?: boolean;
   labels_cost?: number | null;

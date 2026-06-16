@@ -8,6 +8,7 @@ import { revalidateTimelinePaths } from "@/lib/timeline/revalidate";
 import {
   createPurchaseOrderCore,
   fetchPurchaseOrderDetail,
+  updatePoDetailsCore,
   updatePoLabelsCore,
   updatePoLineCostsCore,
   updatePoShipmentCore,
@@ -180,6 +181,37 @@ export async function updatePoShipment(
 
   revalidatePath("/purchase-orders");
 
+  return { ok: true, data: result.data };
+}
+
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+const updatePoDetailsSchema = z.object({
+  id: z.string().uuid(),
+  po_number: z.string().max(100).nullable().optional(),
+  status: poStatusSchema.optional(),
+  order_date: isoDate.nullable().optional(),
+  expected_date: isoDate.nullable().optional(),
+});
+
+export async function updatePoDetails(
+  input: z.infer<typeof updatePoDetailsSchema>,
+): Promise<ActionResult<{ id: string }>> {
+  const parsed = updatePoDetailsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: flattenZod(parsed.error) };
+  }
+
+  const { id, ...details } = parsed.data;
+  const supabase = await createClient();
+  const result = await updatePoDetailsCore(supabase, id, details);
+
+  if (!result.ok) {
+    return { ok: false, error: result.error.message };
+  }
+
+  revalidateTimelinePaths();
+  revalidatePath("/purchase-orders");
   return { ok: true, data: result.data };
 }
 
