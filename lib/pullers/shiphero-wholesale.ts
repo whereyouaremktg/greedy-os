@@ -1,7 +1,6 @@
 import "server-only";
 import { paginate, type ConnectionPage } from "@/lib/shiphero/client";
-import { fullReplaceForTenant, mirrorDb } from "@/lib/shiphero/mirror-db";
-import { resolveDefaultTenantId } from "@/lib/tenant/default-tenant";
+import { fullReplace, mirrorDb } from "@/lib/shiphero/mirror-db";
 
 // ShipHero "Manual Order" channel -> shiphero_wholesale_orders.
 //
@@ -93,7 +92,6 @@ export async function runShipHeroWholesalePull(): Promise<{
   rows: number;
   wholesale: number;
 }> {
-  const tenantId = await resolveDefaultTenantId();
   const syncedAt = new Date().toISOString();
   const fromDate = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000)
     .toISOString()
@@ -131,7 +129,6 @@ export async function runShipHeroWholesalePull(): Promise<{
       .trim();
 
     byOrder.set(orderNumber, {
-      tenant_id: tenantId,
       order_number: orderNumber,
       order_date: n.order_date ? n.order_date.slice(0, 10) : null,
       account: company || null,
@@ -146,10 +143,10 @@ export async function runShipHeroWholesalePull(): Promise<{
   }
 
   const rows = [...byOrder.values()];
-  const written = await fullReplaceForTenant(
+  const written = await fullReplace(
     mirrorDb(),
     "shiphero_wholesale_orders",
-    tenantId,
+    "order_number",
     rows,
   );
   return { ok: true, rows: written, wholesale: wholesaleCount };

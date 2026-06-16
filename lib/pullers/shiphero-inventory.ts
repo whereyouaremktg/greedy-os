@@ -1,8 +1,7 @@
 import "server-only";
 import { paginate, type ConnectionPage } from "@/lib/shiphero/client";
 import { fetchWarehouses } from "@/lib/shiphero/warehouses";
-import { fullReplaceForTenant, mirrorDb } from "@/lib/shiphero/mirror-db";
-import { resolveDefaultTenantId } from "@/lib/tenant/default-tenant";
+import { fullReplace, mirrorDb } from "@/lib/shiphero/mirror-db";
 
 // ShipHero warehouse_products -> retroship_inventory.
 //
@@ -46,7 +45,6 @@ export async function runShipHeroInventoryPull(): Promise<{
   ok: true;
   rows: number;
 }> {
-  const tenantId = await resolveDefaultTenantId();
   const warehouses = await fetchWarehouses();
   const syncedAt = new Date().toISOString();
 
@@ -60,7 +58,6 @@ export async function runShipHeroInventoryPull(): Promise<{
       const sku = n.product?.sku?.trim();
       if (!sku) continue;
       rows.push({
-        tenant_id: tenantId,
         sku,
         warehouse: String(wh.legacyId),
         product_title: n.product?.name ?? null,
@@ -73,10 +70,10 @@ export async function runShipHeroInventoryPull(): Promise<{
     }
   }
 
-  const written = await fullReplaceForTenant(
+  const written = await fullReplace(
     mirrorDb(),
     "retroship_inventory",
-    tenantId,
+    "sku",
     rows,
   );
   return { ok: true, rows: written };

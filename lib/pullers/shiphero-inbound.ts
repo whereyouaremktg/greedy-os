@@ -1,7 +1,6 @@
 import "server-only";
 import { paginate, type ConnectionPage } from "@/lib/shiphero/client";
-import { fullReplaceForTenant, mirrorDb } from "@/lib/shiphero/mirror-db";
-import { resolveDefaultTenantId } from "@/lib/tenant/default-tenant";
+import { fullReplace, mirrorDb } from "@/lib/shiphero/mirror-db";
 
 // ShipHero "Purchase Orders" (manufacturer -> warehouse inbound replenishment)
 // -> shiphero_inbound_pos. These carry expected vs actually-received quantities,
@@ -67,7 +66,6 @@ export async function runShipHeroInboundPull(): Promise<{
   ok: true;
   rows: number;
 }> {
-  const tenantId = await resolveDefaultTenantId();
   const syncedAt = new Date().toISOString();
 
   const nodes = await paginate<POData, PONode>({
@@ -84,7 +82,6 @@ export async function runShipHeroInboundPull(): Promise<{
         quantity_received: e.node.quantity_received ?? 0,
       }));
       return {
-        tenant_id: tenantId,
         po_number: n.po_number,
         po_date: n.po_date ? n.po_date.slice(0, 10) : null,
         fulfillment_status: n.fulfillment_status,
@@ -103,10 +100,10 @@ export async function runShipHeroInboundPull(): Promise<{
   const byPo = new Map<string, (typeof rows)[number]>();
   for (const r of rows) byPo.set(r.po_number as string, r);
 
-  const written = await fullReplaceForTenant(
+  const written = await fullReplace(
     mirrorDb(),
     "shiphero_inbound_pos",
-    tenantId,
+    "po_number",
     [...byPo.values()],
   );
   return { ok: true, rows: written };

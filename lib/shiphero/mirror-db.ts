@@ -10,7 +10,7 @@ type WriteResult = { error: { message: string } | null };
 
 export type MirrorDb = {
   from: (table: string) => {
-    delete: () => { eq: (col: string, val: string) => Promise<WriteResult> };
+    delete: () => { neq: (col: string, val: string) => Promise<WriteResult> };
     insert: (rows: unknown[]) => Promise<WriteResult>;
   };
 };
@@ -19,16 +19,16 @@ export function mirrorDb(): MirrorDb {
   return createServiceClient() as unknown as MirrorDb;
 }
 
-// Tenant-scoped full replace: clear this tenant's rows, then insert the fresh
-// snapshot. Mirrors the shopify_inventory puller's delete-then-insert, but
-// scoped by tenant_id (the composite PK demands it — see migration 0017).
-export async function fullReplaceForTenant(
+// Full replace: clear the table, then insert the fresh snapshot — the
+// current-state mirror pattern (see lib/pullers/shopify-inventory.ts). The
+// `neq` with an impossible value is Supabase's idiom for an unfiltered delete.
+export async function fullReplace(
   db: MirrorDb,
   table: string,
-  tenantId: string,
+  keyColumn: string,
   rows: unknown[],
 ): Promise<number> {
-  const del = await db.from(table).delete().eq("tenant_id", tenantId);
+  const del = await db.from(table).delete().neq(keyColumn, "__never__");
   if (del.error) throw new Error(`${table} clear: ${del.error.message}`);
 
   if (rows.length > 0) {
