@@ -11,8 +11,9 @@ import { fullReplace, mirrorDb } from "@/lib/shiphero/mirror-db";
 // retailer's PO number == ShipHero order_number.
 
 const SHOP_NAME = "Manual Order";
-const PAGE_SIZE = 50;
-const LINES_PER_ORDER = 50;
+// Per-operation complexity ~= outer_first * (1 + nested_first), capped at 4004.
+const PAGE_SIZE = 10;
+const LINES_PER_ORDER = 15;
 const LOOKBACK_DAYS = 540; // ~18 months
 const WHOLESALE_QTY_FLOOR = 12; // bulk threshold when price is $0 (no-charge POs)
 

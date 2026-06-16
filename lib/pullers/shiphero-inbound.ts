@@ -7,8 +7,10 @@ import { fullReplace, mirrorDb } from "@/lib/shiphero/mirror-db";
 // so they reconcile against our OWNED manufacturing_runs at read time
 // (lib/shiphero/reconcile.ts). We never write into manufacturing_runs.
 
-const PAGE_SIZE = 50;
-const LINES_PER_PO = 100;
+// ShipHero per-operation complexity ~= outer_first * (1 + nested_first), capped
+// at 4004. 10 * (1 + 25) = 260, comfortably under.
+const PAGE_SIZE = 10;
+const LINES_PER_PO = 25;
 
 type LineNode = {
   sku: string | null;
