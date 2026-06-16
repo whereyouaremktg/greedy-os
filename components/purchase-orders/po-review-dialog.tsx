@@ -123,7 +123,7 @@ export function PoReviewDialog({ parsed, open, onOpenChange }: Props) {
                   {item.unit_price != null ? (
                     <span>{formatUsd(item.unit_price, 2)}/unit</span>
                   ) : (
-                    <span className="text-muted-foreground">no cost</span>
+                    <span className="text-muted-foreground">no price</span>
                   )}
                   {item.cancel_date ? (
                     <span className="text-destructive">
