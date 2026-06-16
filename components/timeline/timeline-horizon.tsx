@@ -84,15 +84,14 @@ function rangeBarStyle(
   };
 }
 
-function milestoneMarkerLeft(
+function milestoneLeftPct(
   event: TimelineEvent,
   horizonStart: Date,
   totalDays: number,
-): string {
+): number {
   const start = parseISO(event.date);
   const offset = Math.max(0, differenceInCalendarDays(start, horizonStart));
-  const leftPct = (offset / totalDays) * 100;
-  return `${Math.min(100, leftPct)}%`;
+  return Math.min(100, (offset / totalDays) * 100);
 }
 
 function todayMarkerLeft(
@@ -306,7 +305,7 @@ export function TimelineHorizon({
                         } · ${formatEventDateRange(event)}`;
 
                         const barClass = cn(
-                          "absolute z-[2] flex h-10 items-center overflow-hidden rounded-lg border border-black/5 px-2.5 text-left shadow-sm transition-all gap-1",
+                          "absolute z-[2] flex h-10 items-center overflow-hidden rounded-lg border border-black/5 px-2.5 text-left shadow-xs transition-all gap-1",
                           colors.bar,
                           "hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           selected &&
@@ -351,22 +350,26 @@ export function TimelineHorizon({
                           );
                         }
 
-                        const left = milestoneMarkerLeft(
+                        // Anchor the bar to its date marker rather than
+                        // centering on it (centering clipped left-edge events
+                        // off-screen). Near the right edge, anchor the bar's
+                        // right side so it grows leftward and stays in view.
+                        const leftPct = milestoneLeftPct(
                           event,
                           anchor,
                           totalDays,
                         );
+                        const anchorRight = leftPct > 68;
                         return (
                           <button
                             key={event.id}
                             type="button"
                             onClick={() => onSelectEvent(event)}
-                            className={cn(
-                              barClass,
-                              "-translate-x-1/2",
-                            )}
+                            className={barClass}
                             style={{
-                              left,
+                              ...(anchorRight
+                                ? { right: `${100 - leftPct}%` }
+                                : { left: `${leftPct}%` }),
                               top,
                               width: MILESTONE_MIN_WIDTH_PX,
                               maxWidth: "min(280px, 38%)",

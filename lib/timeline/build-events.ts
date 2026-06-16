@@ -188,7 +188,11 @@ export function buildPurchaseOrderEvents(pos: PoRow[]): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
   for (const po of pos) {
-    const title = po.po_number ? `PO ${po.po_number}` : "Purchase order";
+    // Lead with the buyer (REVOLVE, Anthropologie, JillyBox…) so the lane is
+    // scannable even when the bar truncates.
+    const title = po.po_number
+      ? `${po.vendor_name} · PO ${po.po_number}`
+      : po.vendor_name;
     const baseMeta = meta([
       ["Vendor", po.vendor_name],
       ["Status", humanizeStatus(po.status)],
