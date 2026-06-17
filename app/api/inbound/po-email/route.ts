@@ -23,11 +23,15 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-const DEFAULT_ALLOWED = [
-  "paul@glowbeautyhair.com",
-  "marissa@glowbeautyhair.com",
-  "adam@glowbeautyhair.com",
-];
+// Allowlist entries are either an exact address or a "@domain" suffix.
+const DEFAULT_ALLOWED = ["@glowbeautyhair.com"];
+
+function senderAllowed(sender: string, allowed: string[]): boolean {
+  if (allowed.length === 0) return true;
+  return allowed.some((entry) =>
+    entry.startsWith("@") ? sender.endsWith(entry) : sender === entry,
+  );
+}
 
 type PostmarkAttachment = {
   Name?: string;
@@ -185,20 +189,11 @@ export async function POST(request: Request) {
   const sender = (payload.FromFull?.Email ?? payload.From ?? "")
     .toLowerCase()
     .trim();
-  const allowed = (
-    process.env.INBOUND_EMAIL_ALLOWED_SENDERS ?? DEFAULT_ALLOWED.join(",")
-  )
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  if (allowed.length > 0 && !allowed.includes(sender)) {
-    // Only the team can create POs by email. Ack (200) so Postmark won't retry.
-    return Response.json({ ok: true, ignored: "sender not allowed", sender });
-  }
 
   const supabase = createServiceClient();
 
-  // Idempotency: claim the message id. A unique-violation means it's a retry.
+  // Log/claim every delivery first (idempotency + an audit trail we can inspect
+  // even when a message is later rejected). 23505 = a webhook retry.
   const { error: claimError } = await supabase
     .from("inbound_email_log")
     .insert({
@@ -215,6 +210,22 @@ export async function POST(request: Request) {
       { ok: false, error: claimError.message },
       { status: 500 },
     );
+  }
+
+  // Only the team can create POs by email.
+  const allowed = (
+    process.env.INBOUND_EMAIL_ALLOWED_SENDERS ?? DEFAULT_ALLOWED.join(",")
+  )
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (!senderAllowed(sender, allowed)) {
+    await supabase
+      .from("inbound_email_log")
+      .update({ status: "ignored_sender" })
+      .eq("message_id", messageId);
+    // Ack (200) so Postmark won't retry a permanently-ignored message.
+    return Response.json({ ok: true, ignored: "sender not allowed", sender });
   }
 
   // ACK fast; parse + create in the background so Postmark doesn't time out.
