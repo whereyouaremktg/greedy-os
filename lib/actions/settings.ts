@@ -22,8 +22,15 @@ async function requireAuthedUser() {
   return user;
 }
 
-// Save the values for one connector. Non-empty fields are upserted; empty
-// fields delete the existing row so the user can clear a value individually.
+// Save the values for one connector. ONLY non-empty fields are upserted; a
+// blank field is left UNTOUCHED — never deleted.
+//
+// Why: secret inputs render blank when a value is already saved, so the old
+// "blank = delete" behavior silently wiped stored credentials on any partial
+// save. Saving the QuickBooks card with only `env` filled deleted its
+// client_id + client_secret, which is exactly how the connection kept
+// breaking. Explicit removal now goes through Disconnect only.
+//
 // Values never echo back to the client — the page revalidates and re-reads
 // status only.
 export async function saveConnectorCredentials(
@@ -38,21 +45,21 @@ export async function saveConnectorCredentials(
   const user = await requireAuthedUser();
 
   const upserts: Record<string, string> = {};
-  const deletes: string[] = [];
   for (const [key, raw] of Object.entries(payload)) {
     if (!isKnownConnectorKey(connectorId, key)) continue;
     const value = typeof raw === "string" ? raw.trim() : "";
     if (value.length > 0) upserts[key] = value;
-    else deletes.push(key);
+  }
+
+  if (Object.keys(upserts).length === 0) {
+    return {
+      ok: false,
+      error: "Nothing to save — fill at least one field. To remove saved credentials, use Disconnect.",
+    };
   }
 
   try {
-    if (Object.keys(upserts).length > 0) {
-      await setCredentials(connectorId, upserts, user.id);
-    }
-    if (deletes.length > 0) {
-      await deleteCredentials(connectorId, deletes);
-    }
+    await setCredentials(connectorId, upserts, user.id);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: message };
