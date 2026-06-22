@@ -98,15 +98,6 @@ function toNum(v: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// Latest of a set of ISO timestamps, or null.
-function maxIso(values: Array<string | null>): string | null {
-  let best: string | null = null;
-  for (const v of values) {
-    if (v && (best === null || v > best)) best = v;
-  }
-  return best;
-}
-
 export async function runShipHeroInboundPull(): Promise<{
   ok: true;
   rows: number;
@@ -131,12 +122,11 @@ export async function runShipHeroInboundPull(): Promise<{
         fulfillment_status: e.node.fulfillment_status,
         updated_at: e.node.updated_at,
       }));
-      // "Last put into inventory": prefer real per-line receipt timestamps, but
-      // only for lines that actually received something; fall back to date_closed.
-      const receivedAts = lines
-        .filter((l) => l.quantity_received > 0)
-        .map((l) => l.updated_at);
-      const lastReceivedAt = maxIso(receivedAts) ?? n.date_closed ?? null;
+      // "When received into inventory" = date_closed. ShipHero has no immutable
+      // per-line received_at — line.updated_at is bumped by ANY later edit, so
+      // it's unreliable as a receipt date (we keep it in the JSON for reference
+      // only). date_closed reflects receiving completion and is the honest signal.
+      const lastReceivedAt = n.date_closed ?? null;
 
       return {
         po_number: n.po_number,
