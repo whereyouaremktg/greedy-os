@@ -154,8 +154,8 @@ export async function loadWholesaleReconciliation(
 }
 
 // Inbound receiving discrepancies straight from the 3PL's own PO records:
-// where received != ordered (short or over receipts). Reliable without any
-// shared key to manufacturing_runs, and independently useful.
+// where received != ordered (short or over receipts) or anything was rejected.
+// Reliable without any shared key to manufacturing_runs, and independently useful.
 type InboundPoRow = {
   po_number: string;
   po_date: string | null;
@@ -163,9 +163,16 @@ type InboundPoRow = {
   fulfillment_status: string | null;
   total_quantity: number | null;
   total_received: number | null;
+  total_rejected: number | null;
+  date_closed: string | null;
+  last_received_at: string | null;
+  arrived_at: string | null;
 };
 
 export type InboundDiscrepancy = InboundPoRow & { variance: number };
+
+const INBOUND_COLS =
+  "po_number,po_date,vendor_name,fulfillment_status,total_quantity,total_received,total_rejected,date_closed,last_received_at,arrived_at";
 
 export async function loadInboundDiscrepancies(
   db?: UntypedDb,
@@ -175,13 +182,32 @@ export async function loadInboundDiscrepancies(
   const rows = await selectAll<InboundPoRow>(
     client,
     "shiphero_inbound_pos",
-    "po_number,po_date,vendor_name,fulfillment_status,total_quantity,total_received",
+    INBOUND_COLS,
   );
   return rows
     .map((r) => ({
       ...r,
       variance: (r.total_received ?? 0) - (r.total_quantity ?? 0),
     }))
-    .filter((r) => r.variance !== 0)
+    .filter((r) => r.variance !== 0 || (r.total_rejected ?? 0) > 0)
     .sort((a, b) => Math.abs(b.variance) - Math.abs(a.variance));
+}
+
+// Full inbound feed (every PO), newest receiving first — the basis for an
+// "inbound shipments" visibility view.
+export async function loadInboundShipments(
+  db?: UntypedDb,
+): Promise<InboundPoRow[]> {
+  const client = (db ??
+    (createServiceClient() as unknown as UntypedDb)) as UntypedDb;
+  const rows = await selectAll<InboundPoRow>(
+    client,
+    "shiphero_inbound_pos",
+    INBOUND_COLS,
+  );
+  return rows.sort((a, b) => {
+    const ax = a.last_received_at ?? a.date_closed ?? "";
+    const bx = b.last_received_at ?? b.date_closed ?? "";
+    return bx.localeCompare(ax);
+  });
 }
