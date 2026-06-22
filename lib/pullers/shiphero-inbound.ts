@@ -14,6 +14,27 @@ import { fullReplace, mirrorDb } from "@/lib/shiphero/mirror-db";
 const PAGE_SIZE = 30;
 const LINES_PER_PO = 20;
 
+// Scope: the ACTIVE inbound pipeline, not the full archive. Keep any PO that is
+// not-yet-received (open/pending/partial — includes future shipments) OR was
+// received recently. Fully-closed POs older than this drop off (ShipHero keeps
+// the long-term history).
+const RECENT_RECEIPT_DAYS = 90;
+const TERMINAL_STATUSES = new Set(["closed", "canceled", "cancelled"]);
+
+function isActiveOrRecent(
+  status: string | null,
+  dateClosed: string | null,
+  cutoffMs: number,
+): boolean {
+  const s = (status ?? "").trim().toLowerCase();
+  // Open / pending / partial / anything not terminal = in-flight or upcoming.
+  if (!TERMINAL_STATUSES.has(s)) return true;
+  // Terminal (received/canceled): keep only if it closed within the window.
+  if (!dateClosed) return false;
+  const t = Date.parse(dateClosed);
+  return !Number.isNaN(t) && t >= cutoffMs;
+}
+
 type LineNode = {
   sku: string | null;
   product_name: string | null;
@@ -103,6 +124,7 @@ export async function runShipHeroInboundPull(): Promise<{
   rows: number;
 }> {
   const syncedAt = new Date().toISOString();
+  const cutoffMs = Date.now() - RECENT_RECEIPT_DAYS * 86_400_000;
 
   const nodes = await paginate<POData, PONode>({
     buildQuery,
@@ -111,6 +133,7 @@ export async function runShipHeroInboundPull(): Promise<{
 
   const rows = nodes
     .filter((n) => n.po_number)
+    .filter((n) => isActiveOrRecent(n.fulfillment_status, n.date_closed, cutoffMs))
     .map((n) => {
       const lines = n.line_items.edges.map((e) => ({
         sku: e.node.sku,
