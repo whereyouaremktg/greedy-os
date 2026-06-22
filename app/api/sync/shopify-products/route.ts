@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const denied = verifyCronSecret(request);
   if (denied) return denied;
-  return runCronJob("shopify-products", async () => {
+  return runCronJob(async () => {
     const supabase = createServiceClient();
     return runShopifyProductSync(supabase, null);
   });
