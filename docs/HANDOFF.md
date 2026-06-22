@@ -40,26 +40,42 @@
 - **Open connector work:** HubSpot is still a stub puller — engineering work, not UI. Klaviyo remains stubbed beyond what the analyst chat reads.
 - **Out of scope for now:** mobile nav, per-tile click-through detail drawers, sidebar counter realtime refresh.
 
+### QuickBooks pipeline = cloud connector (decided June 2026)
+
+**QB no longer uses the in-app OAuth puller.** Its production keys require an
+Intuit production-app onboarding gauntlet (EULA/privacy URLs, etc.) that wasn't
+worth it. Instead QB data flows from the **QuickBooks cloud connector (the
+QuickBooks MCP)**, which is already authorized to the real **Glow Beauty**
+company — zero Intuit hoops.
+
+- Daily routine `glow-os-quickbooks-sync` (7:06am ET) calls the connector's
+  report tools (balance sheet, AR/AP aging, P&L) and upserts `qb_financials`
+  via `scripts/qb-connector-sync.mjs` (stdin JSON → upsert on `as_of_date`).
+- `/api/cron/quickbooks` (in-app OAuth puller) is **removed from `vercel.ts`**
+  but kept as code for a future "production keys" upgrade to 24/7 unattended.
+- Tradeoff: the routine refreshes **when the Claude app is open**, not 24/7.
+  `STALE_AFTER.qb` was relaxed to 30h to match the daily cadence.
+- One-time backfill done 2026-06-22 (cash $431,886, AR $92,173, AP $14,868).
+
+Root cause of the original outage (for the record): QB's OAuth runtime tokens
+were wiped from `connector_credentials` (and later the `client_id`/`secret`
+too, by a Settings blank-save bug — now fixed). The 6h cron threw
+`MissingCredentialsError` for ~26 days with no alarm; `qb_financials` froze at
+`2026-05-26`.
+
 ### Observability — connector health + alerting (June 2026)
 
-Root cause of the May–June QuickBooks outage: its OAuth runtime tokens
-(`refresh_token` / `access_token` / `realm_id` / expiries) were wiped from
-`connector_credentials`, leaving only `client_id` / `client_secret`. The cron
-threw `MissingCredentialsError` every 6h for ~26 days with **no alarm**.
-`qb_financials` froze at `2026-05-26`. Fix = reconnect OAuth at `/settings`
-(only Paul/Marissa can complete the Intuit consent).
-
-Hardening added so it can't silently rot again:
-- `runCronJob(name, job)` now posts a deduped Slack alert (`lib/alerts.ts`) to
-  `#greedy-os` on any cron failure. All 8 cron routes pass their name.
+So a pipeline can't silently rot again:
+- `runCronJob(name, job)` posts a deduped Slack alert (`lib/alerts.ts`) to
+  `#greedy-os` on any cron failure. All cron routes pass their name.
 - `lib/health/connectors.ts` + `/api/health` (read, CRON_SECRET-gated, 503 when
-  unhealthy) + `/api/cron/health` (hourly, alerts on stale / disconnected /
-  token-expiring). Checks freshness for quickbooks/shopify/klaviyo/shiphero and
-  QuickBooks OAuth token expiry. `hubspot` "never" is report-only (still a stub).
-- Daily Claude Code routine `glow-os-connector-health` (8:34am ET) curls
+  unhealthy) + `/api/cron/health` (hourly, alerts on stale connectors).
+  Freshness for quickbooks/shopify/klaviyo/shiphero; QB is freshness-only now
+  (no token to check). `hubspot` "never" is report-only (still a stub).
+- Daily Claude routine `glow-os-connector-health` (8:34am ET) curls
   `/api/health` and posts a heartbeat / problem summary to `#greedy-os`.
-- **NOTE:** `/api/health`, `/api/cron/health`, and the cron alerting only go
-  live once `main` is **deployed**. Reconnect works against current prod today.
+- **NOTE:** `/api/health`, `/api/cron/health`, and cron alerting go live only
+  once `main` is **deployed**. The QB connector sync + backfill already work.
 
 ## Hard rules
 

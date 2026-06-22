@@ -9,7 +9,11 @@ const config: VercelConfig = {
     },
   },
   crons: [
-    { path: "/api/cron/quickbooks", schedule: "0 */6 * * *" },
+    // QuickBooks is NOT here: its data now flows from the QuickBooks cloud
+    // connector via the daily `glow-os-quickbooks-sync` Claude routine (which
+    // upserts qb_financials). The in-app OAuth puller at /api/cron/quickbooks
+    // is kept as code for a future "production keys" upgrade, but is unscheduled
+    // so it can't fail+alert without production OAuth tokens.
     { path: "/api/cron/shopify", schedule: "0 */2 * * *" },
     // Sales history changes slowly — refresh weekly (Mon 11:00 UTC).
     { path: "/api/cron/shopify-sales-history", schedule: "0 11 * * 1" },

@@ -11,7 +11,7 @@ import { fetchTimelineEvents } from "@/lib/timeline/fetch";
 type DB = SupabaseClient<Database>;
 
 const CRON_MS = {
-  qb: 6 * 60 * 60 * 1000,
+  qb: 24 * 60 * 60 * 1000, // daily connector routine (not the old 6h cron)
   shopify: 2 * 60 * 60 * 1000,
   klaviyo: 4 * 60 * 60 * 1000,
   hubspot: 6 * 60 * 60 * 1000,

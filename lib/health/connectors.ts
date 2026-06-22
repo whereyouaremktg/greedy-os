@@ -2,12 +2,14 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/db";
 import { STALE_AFTER } from "@/lib/dashboard/staleness";
-import { getCredentials } from "@/lib/connectors/credentials";
 
-// Connector health = "is fresh data actually landing, and are the credentials
-// that produce it still valid." This is the proactive watchdog: it checks the
-// symptom (stale cache) AND the most common cause (missing/expiring OAuth
-// tokens), so a silent pipeline death surfaces on day one.
+// Connector health = "is fresh data actually landing in each cache table." The
+// proactive watchdog: if a connector's data goes older than its threshold, a
+// silent pipeline death surfaces the same day instead of a month later.
+//
+// QuickBooks is checked purely on freshness — its data flows from the cloud
+// connector via the daily `glow-os-quickbooks-sync` routine, not in-app OAuth,
+// so there's no token to inspect here.
 
 type DB = SupabaseClient<Database>;
 
@@ -21,14 +23,6 @@ export type ConnectorHealth = {
   thresholdMs: number;
   status: ConnectorHealthStatus;
   detail: string;
-  // Populated for OAuth connectors (QuickBooks) so we can flag a token that's
-  // missing or about to expire before the data even goes stale.
-  token?: {
-    connected: boolean;
-    refreshTokenExpiresAt: string | null;
-    expiresInDays: number | null;
-    expiringSoon: boolean;
-  };
 };
 
 export type HealthReport = {
@@ -38,7 +32,6 @@ export type HealthReport = {
   problems: ConnectorHealth[];
 };
 
-const TOKEN_EXPIRY_WARN_DAYS = 7;
 const RETROSHIP_STALE_MS = 12 * 60 * 60 * 1000; // 2× 6h cron
 
 // Typed cache-table checks. `hubspot` is intentionally report-only (its puller
@@ -87,29 +80,6 @@ function statusFor(
   return { status: ageMs > thresholdMs ? "stale" : "ok", ageMs };
 }
 
-async function quickbooksTokenHealth(): Promise<
-  NonNullable<ConnectorHealth["token"]>
-> {
-  const creds = await getCredentials("quickbooks");
-  const connected = Boolean(creds.refresh_token && creds.realm_id);
-  const expAt = creds.refresh_token_expires_at ?? null;
-  let expiresInDays: number | null = null;
-  let expiringSoon = false;
-  if (expAt) {
-    const ms = Date.parse(expAt) - Date.now();
-    if (!Number.isNaN(ms)) {
-      expiresInDays = Math.floor(ms / 86_400_000);
-      expiringSoon = ms < TOKEN_EXPIRY_WARN_DAYS * 86_400_000;
-    }
-  }
-  return {
-    connected,
-    refreshTokenExpiresAt: expAt,
-    expiresInDays,
-    expiringSoon,
-  };
-}
-
 export async function getConnectorHealth(supabase: DB): Promise<HealthReport> {
   const checkedAt = new Date().toISOString();
 
@@ -117,7 +87,7 @@ export async function getConnectorHealth(supabase: DB): Promise<HealthReport> {
     TYPED_CHECKS.map(async (c): Promise<ConnectorHealth> => {
       const lastSyncedAt = await latestSyncedAt(supabase, c.table);
       const { status, ageMs } = statusFor(lastSyncedAt, c.thresholdMs);
-      const base: ConnectorHealth = {
+      return {
         connector: c.connector,
         table: c.table,
         lastSyncedAt,
@@ -131,23 +101,6 @@ export async function getConnectorHealth(supabase: DB): Promise<HealthReport> {
               ? `last sync ${relDays(ageMs ?? 0)} ago (threshold ${relDays(c.thresholdMs)})`
               : `fresh — ${relDays(ageMs ?? 0)} ago`,
       };
-
-      if (c.connector === "quickbooks") {
-        const token = await quickbooksTokenHealth();
-        base.token = token;
-        if (!token.connected) {
-          base.status = "disconnected";
-          base.detail =
-            "no refresh_token — OAuth disconnected. Reconnect at /settings.";
-        } else if (token.expiringSoon) {
-          base.detail =
-            token.expiresInDays != null && token.expiresInDays < 0
-              ? `refresh token expired ${Math.abs(token.expiresInDays)}d ago — reconnect at /settings`
-              : `refresh token expires in ${token.expiresInDays}d — reconnect at /settings`;
-        }
-      }
-
-      return base;
     }),
   );
 
@@ -195,7 +148,7 @@ export async function getConnectorHealth(supabase: DB): Promise<HealthReport> {
   // "Problem" = something an operator should act on. A never-synced stub
   // (hubspot) is reported but not treated as a problem so it doesn't nag.
   const problems = connectors.filter(
-    (c) => c.status === "stale" || c.status === "disconnected" || c.token?.expiringSoon,
+    (c) => c.status === "stale" || c.status === "disconnected",
   );
 
   return { ok: problems.length === 0, checkedAt, connectors, problems };

@@ -7,7 +7,7 @@
 export type TileStatus = "pending" | "live" | "stale";
 
 export const STALE_AFTER = {
-  qb: 12 * 60 * 60 * 1000, // 2× 6h cron
+  qb: 30 * 60 * 60 * 1000, // QuickBooks now refreshes once daily via the connector routine (~24h + buffer)
   shopify: 4 * 60 * 60 * 1000, // 2× 2h cron
   klaviyo: 8 * 60 * 60 * 1000, // 2× 4h cron
   hubspot: 12 * 60 * 60 * 1000, // 2× 6h cron

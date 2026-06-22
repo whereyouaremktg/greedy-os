@@ -21,25 +21,11 @@ export async function GET(request: Request) {
     const report = await getConnectorHealth(supabase);
 
     for (const c of report.problems) {
-      if (c.status === "disconnected") {
-        await alertConnectorIssue({
-          connector: c.connector,
-          kind: "disconnected",
-          detail: c.detail,
-        });
-      } else if (c.status === "stale") {
-        await alertConnectorIssue({
-          connector: c.connector,
-          kind: "stale",
-          detail: c.detail,
-        });
-      } else if (c.token?.expiringSoon) {
-        await alertConnectorIssue({
-          connector: c.connector,
-          kind: "token_expiring",
-          detail: c.detail,
-        });
-      }
+      await alertConnectorIssue({
+        connector: c.connector,
+        kind: c.status === "disconnected" ? "disconnected" : "stale",
+        detail: c.detail,
+      });
     }
 
     return {
