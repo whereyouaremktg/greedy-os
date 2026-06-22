@@ -22,6 +22,9 @@ const config: VercelConfig = {
     // Daily morning briefing — re-enabled at Paul's request (June 2026), now
     // every day (sales move on weekends too). 13:00 UTC = 9am ET.
     { path: "/api/cron/slack-digest", schedule: "0 13 * * *" },
+    // Connector watchdog — hourly freshness + OAuth-token check; Slacks
+    // #greedy-os (deduped per day) on staleness / disconnect / token expiry.
+    { path: "/api/cron/health", schedule: "0 * * * *" },
   ],
 };
 

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const denied = verifyCronSecret(request);
   if (denied) return denied;
-  return runCronJob(async () => {
+  return runCronJob("shopify", async () => {
     const metrics = await runShopifyPull();
     const inventory = await runShopifyInventoryPull();
     return { ok: true, metrics: metrics.rows, inventory: inventory.rows };

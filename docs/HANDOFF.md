@@ -40,6 +40,27 @@
 - **Open connector work:** HubSpot is still a stub puller — engineering work, not UI. Klaviyo remains stubbed beyond what the analyst chat reads.
 - **Out of scope for now:** mobile nav, per-tile click-through detail drawers, sidebar counter realtime refresh.
 
+### Observability — connector health + alerting (June 2026)
+
+Root cause of the May–June QuickBooks outage: its OAuth runtime tokens
+(`refresh_token` / `access_token` / `realm_id` / expiries) were wiped from
+`connector_credentials`, leaving only `client_id` / `client_secret`. The cron
+threw `MissingCredentialsError` every 6h for ~26 days with **no alarm**.
+`qb_financials` froze at `2026-05-26`. Fix = reconnect OAuth at `/settings`
+(only Paul/Marissa can complete the Intuit consent).
+
+Hardening added so it can't silently rot again:
+- `runCronJob(name, job)` now posts a deduped Slack alert (`lib/alerts.ts`) to
+  `#greedy-os` on any cron failure. All 8 cron routes pass their name.
+- `lib/health/connectors.ts` + `/api/health` (read, CRON_SECRET-gated, 503 when
+  unhealthy) + `/api/cron/health` (hourly, alerts on stale / disconnected /
+  token-expiring). Checks freshness for quickbooks/shopify/klaviyo/shiphero and
+  QuickBooks OAuth token expiry. `hubspot` "never" is report-only (still a stub).
+- Daily Claude Code routine `glow-os-connector-health` (8:34am ET) curls
+  `/api/health` and posts a heartbeat / problem summary to `#greedy-os`.
+- **NOTE:** `/api/health`, `/api/cron/health`, and the cron alerting only go
+  live once `main` is **deployed**. Reconnect works against current prod today.
+
 ## Hard rules
 
 - `nvm use` + **pnpm** only  

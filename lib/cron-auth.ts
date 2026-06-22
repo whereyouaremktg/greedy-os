@@ -23,17 +23,25 @@ function cronErrorMessage(err: unknown): string {
   return "Cron job failed";
 }
 
-/** Runs a puller and returns JSON — never an unhandled stack-trace 500. */
+/**
+ * Runs a puller and returns JSON — never an unhandled stack-trace 500.
+ * On failure it posts a deduped Slack alert (best-effort) so a pipeline that
+ * dies quietly — like QuickBooks losing its refresh token — surfaces the same
+ * day instead of a month later. `name` is the connector label used in the
+ * alert + dedupe key (e.g. "quickbooks").
+ */
 export async function runCronJob<T>(
+  name: string,
   job: () => Promise<T>,
 ): Promise<Response> {
   try {
     const result = await job();
     return Response.json(result);
   } catch (err) {
-    return Response.json(
-      { ok: false, error: cronErrorMessage(err) },
-      { status: 500 },
-    );
+    const message = cronErrorMessage(err);
+    // Import lazily so cron-auth stays dependency-light for the auth-only path.
+    const { alertCronFailure } = await import("@/lib/alerts");
+    await alertCronFailure(name, message);
+    return Response.json({ ok: false, error: message }, { status: 500 });
   }
 }

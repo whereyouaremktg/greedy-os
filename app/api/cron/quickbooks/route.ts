@@ -8,5 +8,5 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const denied = verifyCronSecret(request);
   if (denied) return denied;
-  return runCronJob(runQuickbooksPull);
+  return runCronJob("quickbooks", runQuickbooksPull);
 }

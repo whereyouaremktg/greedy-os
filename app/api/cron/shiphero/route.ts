@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const denied = verifyCronSecret(request);
   if (denied) return denied;
-  return runCronJob(async () => {
+  return runCronJob("shiphero", async () => {
     const inventory = await runShipHeroInventoryPull();
     const inbound = await runShipHeroInboundPull();
     const wholesale = await runShipHeroWholesalePull();
