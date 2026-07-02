@@ -6,6 +6,7 @@ import { FileUp, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteRun } from "@/lib/actions/manufacturing";
+import { CorrespondencePanel } from "@/components/inbound/correspondence-panel";
 import { ManufacturingBoard } from "@/components/manufacturing/manufacturing-board";
 import { ManufacturingTable } from "@/components/manufacturing/manufacturing-table";
 import { MoReviewDialog } from "@/components/manufacturing/mo-review-dialog";
@@ -257,17 +258,26 @@ export function ManufacturingView({
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-4 pb-4">
             {editing ? (
-              <RunForm
-                run={editing}
-                vendors={vendors}
-                purchaseOrders={purchaseOrders}
-                products={products}
-                onSuccess={() =>
-                  handleMutationSuccess(() => setEditing(null))
-                }
-                onCancel={() => setEditing(null)}
-                onDeleted={() => handleMutationSuccess(() => setEditing(null))}
-              />
+              <>
+                <RunForm
+                  run={editing}
+                  vendors={vendors}
+                  purchaseOrders={purchaseOrders}
+                  products={products}
+                  onSuccess={() =>
+                    handleMutationSuccess(() => setEditing(null))
+                  }
+                  onCancel={() => setEditing(null)}
+                  onDeleted={() => handleMutationSuccess(() => setEditing(null))}
+                />
+                <div className="mt-6 space-y-2">
+                  <h3 className="text-sm font-medium">Correspondence</h3>
+                  <CorrespondencePanel
+                    entityType="manufacturing_run"
+                    entityId={editing.id}
+                  />
+                </div>
+              </>
             ) : null}
           </div>
         </SheetContent>

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { PoView } from "@/components/purchase-orders/po-view";
 import type { PoRow } from "@/components/purchase-orders/types";
 import { createClient } from "@/lib/supabase/server";
+import { NeedsAttention } from "@/components/inbound/needs-attention";
 
 function summarizePayments(
   payments: Array<{ amount: number; paid: boolean }>,
@@ -76,6 +77,9 @@ export default async function PurchaseOrdersPage({
 
   return (
     <div className="space-y-6">
+      <Suspense fallback={null}>
+        <NeedsAttention stream="wholesale" />
+      </Suspense>
       <Suspense fallback={null}>
         <PoView orders={orders} initialUploadOpen={params.new === "1"} />
       </Suspense>

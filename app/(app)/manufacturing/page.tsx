@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 
 import { createClient } from "@/lib/supabase/server";
+import { NeedsAttention } from "@/components/inbound/needs-attention";
 import {
   ManufacturingView,
 } from "@/components/manufacturing/manufacturing-view";
@@ -97,15 +98,20 @@ export default async function ManufacturingPage({
   const products: ProductOption[] = productsResult.data ?? [];
 
   return (
-    <Suspense fallback={null}>
-      <ManufacturingView
-        initialRuns={runs}
-        vendors={vendors}
-        purchaseOrders={purchaseOrders}
-        products={products}
-        initialCreateOpen={params.new === "1"}
-        initialUploadOpen={params.upload === "1"}
-      />
-    </Suspense>
+    <div className="space-y-4">
+      <Suspense fallback={null}>
+        <NeedsAttention stream="manufacturing" />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ManufacturingView
+          initialRuns={runs}
+          vendors={vendors}
+          purchaseOrders={purchaseOrders}
+          products={products}
+          initialCreateOpen={params.new === "1"}
+          initialUploadOpen={params.upload === "1"}
+        />
+      </Suspense>
+    </div>
   );
 }

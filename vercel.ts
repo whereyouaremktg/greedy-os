@@ -29,6 +29,10 @@ const config: VercelConfig = {
     // Connector watchdog — hourly freshness + OAuth-token check; Slacks
     // #greedy-os (deduped per day) on staleness / disconnect / token expiry.
     { path: "/api/cron/health", schedule: "0 * * * *" },
+    // Daily PO/manufacturing radar — re-runs the email extraction agent over
+    // every open run + wholesale PO and posts 🔴🟡🟢 status to Slack. After
+    // the 13:00 digest so the radar lands second.
+    { path: "/api/cron/po-monitor", schedule: "0 14 * * *" },
   ],
 };
 

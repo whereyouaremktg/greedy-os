@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { CorrespondencePanel } from "@/components/inbound/correspondence-panel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -599,6 +600,14 @@ export function PoDetailSheet({
             {detail.line_items.length > 0 ? (
               <CostsForm detail={detail} onSaved={onSaved} />
             ) : null}
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Correspondence</h3>
+              <CorrespondencePanel
+                entityType="purchase_order"
+                entityId={detail.id}
+              />
+            </div>
           </div>
         ) : null}
       </SheetContent>

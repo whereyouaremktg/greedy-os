@@ -241,6 +241,69 @@ export type Database = {
         }
         Relationships: []
       }
+      inbound_messages: {
+        Row: {
+          attachments: Json
+          error: string | null
+          extraction: Json | null
+          from_email: string | null
+          html_body: string | null
+          id: string
+          in_reply_to: string | null
+          matched_entity_id: string | null
+          matched_entity_type: string | null
+          message_id: string
+          processed_at: string | null
+          received_at: string
+          references: string | null
+          status: string
+          stream: string
+          subject: string | null
+          text_body: string | null
+          thread_key: string
+        }
+        Insert: {
+          attachments?: Json
+          error?: string | null
+          extraction?: Json | null
+          from_email?: string | null
+          html_body?: string | null
+          id?: string
+          in_reply_to?: string | null
+          matched_entity_id?: string | null
+          matched_entity_type?: string | null
+          message_id: string
+          processed_at?: string | null
+          received_at?: string
+          references?: string | null
+          status?: string
+          stream: string
+          subject?: string | null
+          text_body?: string | null
+          thread_key: string
+        }
+        Update: {
+          attachments?: Json
+          error?: string | null
+          extraction?: Json | null
+          from_email?: string | null
+          html_body?: string | null
+          id?: string
+          in_reply_to?: string | null
+          matched_entity_id?: string | null
+          matched_entity_type?: string | null
+          message_id?: string
+          processed_at?: string | null
+          received_at?: string
+          references?: string | null
+          status?: string
+          stream?: string
+          subject?: string | null
+          text_body?: string | null
+          thread_key?: string
+        }
+        Relationships: []
+      }
       klaviyo_metrics: {
         Row: {
           affiliate_revenue: number | null
