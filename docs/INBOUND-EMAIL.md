@@ -11,10 +11,17 @@ stream; wholesale reuses the same pipeline.
 Each monitored address gets a Postmark inbound server whose webhook points at
 the matching stream endpoint, with the shared secret in the URL:
 
-| Address | Webhook URL |
-|---|---|
-| `product@glowbeautyhair.com` (manufacturing) | `https://glow-os-bay.vercel.app/api/inbound/manufacturing-email?token=<INBOUND_EMAIL_SECRET>` |
-| `receiving@glowbeautyhair.com` (wholesale) | `https://glow-os-bay.vercel.app/api/inbound/po-email?token=<INBOUND_EMAIL_SECRET>` |
+| Address | Stream | Webhook URL |
+|---|---|---|
+| `product@glowbeautyhair.com` | manufacturing (factory comms: proformas, production, freight) | `https://glow-os-bay.vercel.app/api/inbound/manufacturing-email?token=<INBOUND_EMAIL_SECRET>` |
+| `retail@glowbeautyhair.com` | wholesale (buyer POs: REVOLVE / Anthropologie / JillyBox) | `https://glow-os-bay.vercel.app/api/inbound/po-email?token=<INBOUND_EMAIL_SECRET>` |
+
+Both addresses are Google Groups whose sole member is the matching Postmark
+server's inbound hash address (`…@inbound.postmarkapp.com`) — groups deliver
+server-side, so there's no per-mailbox forwarding verification to fight. The
+group must allow EXTERNAL senders to post or vendor mail bounces before
+Postmark sees it. (July 2026: retail@ live and proven with a real Anthro PO;
+product@ pending — mailbox forwarding was blocked, converting to a group.)
 
 `INBOUND_EMAIL_SECRET` is already set in Vercel production env (same token for
 both). Enable "Include raw email content" is NOT needed; the default JSON
