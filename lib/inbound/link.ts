@@ -48,8 +48,9 @@ export function extractReferenceNumbers(text: string): string[] {
   for (const m of text.matchAll(/\b(?:p\.?[io]\.?(?![a-z])|order|proforma)\s*#?\s*:?\s*((?=[a-z0-9-]{0,19}\d)[a-z0-9][a-z0-9-]{2,19})\b/gi)) {
     out.add(m[1].toUpperCase());
   }
-  // Bare PI/PO-prefixed codes like PI20260407 / PO4821.
-  for (const m of text.matchAll(/\b(p[io]\d{3,12})\b/gi)) {
+  // Bare PI/PO-prefixed codes like PI20260407, PO4821, PI-A283. The required
+  // digit is what keeps prose words (pictures, possible, post-holiday) out.
+  for (const m of text.matchAll(/\b(p[io][a-z0-9-]{0,15}\d[a-z0-9-]{0,8})\b/gi)) {
     out.add(m[1].toUpperCase());
   }
   return [...out].slice(0, 10);

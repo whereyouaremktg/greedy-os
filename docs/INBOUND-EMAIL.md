@@ -43,13 +43,22 @@ lightweight classifier (`lib/inbound/classify.ts`) re-routes between streams.
    match (PI numbers live in run notes) → unambiguous vendor with exactly one
    open order → create the run/PO from an attached proforma/PO document →
    else `needs_review`. Never guess-links across vendors.
-6. **Extract** (`extract.ts`) — one structured Claude call (withModelFallback)
-   over the FULL thread + current record. Returns summary / updates / missing /
-   open_questions / risky_changes / confidence.
-7. **Apply** — high-confidence safe updates only: dates, forward-only
-   stage/status moves, tracking/carrier/ship date. Quantity + price changes and
-   anything in risky_changes are NEVER auto-applied → `needs_review`.
-   Provenance note appended to the run/PO on every applied change.
+6. **Agent** (`agent.ts`) — a tool-using agent (generateText + tools,
+   GLOW_MODEL via withModelFallback, ≤12 steps) reads the FULL thread against
+   the current record and operates the system directly through entity-scoped
+   tools: `advance_stage` / `set_status` (forward-only, enforced in code),
+   `update_dates`, `update_shipment` (PO tracking/carrier/ship date),
+   `record_payment` (marks `po_payments` rows paid — "deposit landed" →
+   deposit row paid; all paid → status `closed` = "Paid"), `append_note`,
+   `flag_for_review`, and a required `finish(summary, missing, open_questions)`.
+   Its system prompt is a Glow OS glossary (stage semantics, PO status labels,
+   payment ledger) so it "speaks the system's language". Guardrails live in
+   the tool implementations: quantity/price changes, cancellations, and
+   backwards moves are physically impossible — they route to `needs_review`.
+   A dated provenance note listing the agent's field changes is appended on
+   every pass; no-op tools report "already set" so re-runs stay idempotent.
+   (`extract.ts`'s one-shot extractor remains only for the legacy Apply button
+   on old stored rows.)
 8. **Notify** — Slack ping per processed email (deduped per message).
 
 ## Daily radar

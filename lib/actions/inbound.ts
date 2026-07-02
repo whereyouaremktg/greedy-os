@@ -50,23 +50,38 @@ async function getAuthedClient() {
   return { supabase, user };
 }
 
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
+}
+
+/**
+ * Stored extraction jsonb comes in two shapes: the original one-shot
+ * extractor's ({summary, updates, ...}) and the tool-using agent's
+ * ({summary, applied, needs_review, ...} — no `updates`, the agent applies
+ * directly). Normalize both for the UI.
+ */
 function parseStoredExtraction(raw: unknown): {
   extraction: Extraction | null;
+  summary: string | null;
+  missing: string[];
+  openQuestions: string[];
   applied: string[];
   needsReview: string[];
   appliedAt: string | null;
 } {
   const parsed = extractionSchema.safeParse(raw);
-  const extra = (raw ?? {}) as {
-    applied?: string[];
-    needs_review?: string[];
-    applied_at?: string;
-  };
+  const extra = (raw ?? {}) as Record<string, unknown>;
   return {
     extraction: parsed.success ? parsed.data : null,
-    applied: Array.isArray(extra.applied) ? extra.applied : [],
-    needsReview: Array.isArray(extra.needs_review) ? extra.needs_review : [],
-    appliedAt: extra.applied_at ?? null,
+    summary:
+      typeof extra.summary === "string" && extra.summary.trim()
+        ? extra.summary
+        : null,
+    missing: strings(extra.missing),
+    openQuestions: strings(extra.open_questions),
+    applied: strings(extra.applied),
+    needsReview: strings(extra.needs_review),
+    appliedAt: typeof extra.applied_at === "string" ? extra.applied_at : null,
   };
 }
 
@@ -108,21 +123,29 @@ export async function getCorrespondence(
   const latestWithExtraction = (data ?? []).find((m) => m.extraction != null);
   let latest: CorrespondenceData["latest"] = null;
   if (latestWithExtraction) {
-    const { extraction, applied, needsReview, appliedAt } =
-      parseStoredExtraction(latestWithExtraction.extraction);
-    if (extraction) {
-      const suggested = Object.entries(extraction.updates)
-        .filter(([, v]) => v != null)
-        .map(([k, v]) => `${k.replace(/_/g, " ")} → ${v}`)
-        .filter((s) => !applied.some((a) => a.split(" → ")[0] === s.split(" → ")[0]));
+    const stored = parseStoredExtraction(latestWithExtraction.extraction);
+    // Legacy one-shot rows carry machine-applicable `updates` for the Apply
+    // button; agent rows apply directly, so `suggested` stays empty there.
+    const suggested = stored.extraction
+      ? Object.entries(stored.extraction.updates)
+          .filter(([, v]) => v != null)
+          .map(([k, v]) => `${k.replace(/_/g, " ")} → ${v}`)
+          .filter(
+            (s) =>
+              !stored.applied.some(
+                (a) => a.split(" → ")[0] === s.split(" → ")[0],
+              ),
+          )
+      : [];
+    if (stored.summary) {
       latest = {
         messageId: latestWithExtraction.id,
-        summary: extraction.summary,
-        missing: extraction.missing,
-        openQuestions: extraction.open_questions,
-        needsReview,
+        summary: stored.summary,
+        missing: stored.missing,
+        openQuestions: stored.openQuestions,
+        needsReview: stored.needsReview,
         suggested,
-        appliedAt,
+        appliedAt: stored.appliedAt,
       };
     }
   }

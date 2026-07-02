@@ -1,11 +1,10 @@
 import { waitUntil } from "@vercel/functions";
 
+import { runInboundAgent } from "@/lib/inbound/agent";
 import { classifyStream } from "@/lib/inbound/classify";
 import {
-  applySafeUpdates,
   fetchEntityState,
   fetchThreadMessages,
-  runExtraction,
 } from "@/lib/inbound/extract";
 import { linkMessageToEntity } from "@/lib/inbound/link";
 import {
@@ -294,21 +293,20 @@ async function processInboundMessage(
     );
 
     const today = new Date().toISOString().slice(0, 10);
-    const extraction = await runExtraction(entity, messages, today);
     const provenance = `[email ${today}] "${payload.Subject ?? "(no subject)"}"`;
-    const { applied, needsReview } = await applySafeUpdates(
+    const outcome = await runInboundAgent(
       supabase,
       entity,
-      extraction,
+      messages,
+      today,
       provenance,
     );
+    const { applied, needs_review: needsReview } = outcome;
 
     await setStatus({
       status: needsReview.length > 0 ? "needs_review" : "applied",
       extraction: {
-        ...extraction,
-        applied,
-        needs_review: needsReview,
+        ...outcome,
         applied_at: new Date().toISOString(),
       } as never,
     });
@@ -329,7 +327,7 @@ async function processInboundMessage(
         subject: payload.Subject ?? null,
         applied,
         needsReview,
-        summary: extraction.summary,
+        summary: outcome.summary,
       });
     } catch (slackErr) {
       console.error("[inbound] slack post failed", slackErr);

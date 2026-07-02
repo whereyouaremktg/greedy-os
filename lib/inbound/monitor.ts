@@ -1,13 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { differenceInCalendarDays, parseISO } from "date-fns";
 
+import { runInboundAgent } from "@/lib/inbound/agent";
 import {
-  applySafeUpdates,
   fetchEntityState,
   fetchThreadMessages,
-  runExtraction,
   type EntityState,
-  type Extraction,
   type ThreadMessage,
 } from "@/lib/inbound/extract";
 import { formatStageLabel } from "@/lib/manufacturing/stages";
@@ -41,9 +39,15 @@ function shortDate(iso: string | null): string {
   return iso ? iso.slice(5).replace("-", "/") : "no date";
 }
 
+type AgentFindings = {
+  missing: string[];
+  open_questions: string[];
+  needs_review?: string[];
+};
+
 function assess(
   entity: EntityState,
-  extraction: Extraction | null,
+  extraction: AgentFindings | null,
   messages: ThreadMessage[],
   applied: string[],
   today: string,
@@ -69,6 +73,7 @@ function assess(
   if (silent) attention.push("no correspondence yet");
   for (const m of extraction?.missing ?? []) attention.push(m);
   for (const q of extraction?.open_questions ?? []) attention.push(q);
+  for (const f of extraction?.needs_review ?? []) attention.push(f);
 
   const light: RadarLine["light"] =
     overdue || (stalled && !eta)
@@ -116,26 +121,30 @@ export async function monitorEntity(
   if (!entity) return null;
   const messages = await fetchThreadMessages(supabase, entityType, entityId);
 
-  let extraction: Extraction | null = null;
+  let findings: AgentFindings | null = null;
   let applied: string[] = [];
   if (messages.length > 0) {
     try {
-      extraction = await runExtraction(entity, messages, today);
-      const result = await applySafeUpdates(
+      const outcome = await runInboundAgent(
         supabase,
         entity,
-        extraction,
+        messages,
+        today,
         `[radar ${today}]`,
       );
-      applied = result.applied;
+      findings = outcome;
+      applied = outcome.applied;
+      for (const flag of outcome.needs_review) {
+        console.warn("[po-monitor] needs review:", entityType, entityId, flag);
+      }
     } catch (err) {
-      console.error("[po-monitor] extraction failed", entityType, entityId, err);
+      console.error("[po-monitor] agent failed", entityType, entityId, err);
     }
   }
 
   // Re-read after applying so the radar line reflects the updated record.
   const fresh = (await fetchEntityState(supabase, entityType, entityId)) ?? entity;
-  return assess(fresh, extraction, messages, applied, today);
+  return assess(fresh, findings, messages, applied, today);
 }
 
 export async function listOpenEntities(supabase: Client): Promise<{
