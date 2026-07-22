@@ -154,6 +154,30 @@
   }
 }
 
+::selection {
+  background: hsl(from var(--brand) h s l / 0.25);
+}
+
+/* Thin, quiet scrollbars — boards and tables scroll a lot */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(from var(--muted-foreground) h s l / 0.25) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: hsl(from var(--muted-foreground) h s l / 0.25);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(from var(--muted-foreground) h s l / 0.4);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .view-transition-content {
     view-transition-name: none !important;

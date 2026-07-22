@@ -15,7 +15,7 @@ export function KpiSparkline({ data, className }: Props) {
   if (data.length < 2) return null;
 
   const chartData = data.map((value, i) => ({ i, value }));
-  const stroke = "hsl(var(--brand))";
+  const stroke = "var(--brand)";
   const gradientId = `kpi-spark-${data.length}-${data[0]}`;
 
   return (
@@ -24,7 +24,7 @@ export function KpiSparkline({ data, className }: Props) {
         <AreaChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={stroke} stopOpacity={0.12} />
+              <stop offset="0%" stopColor={stroke} stopOpacity={0.2} />
               <stop offset="100%" stopColor={stroke} stopOpacity={0} />
             </linearGradient>
           </defs>

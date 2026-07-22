@@ -88,18 +88,22 @@ function HeadlineValue({
 }: Pick<Props, "value" | "rawValue" | "format" | "fractionDigits">) {
   if (value != null) {
     return (
-      <div className="text-2xl font-semibold tracking-tight num">{value}</div>
+      <div className="text-[26px] leading-none font-semibold tracking-tight num">
+        {value}
+      </div>
     );
   }
 
   if (rawValue == null) {
     return (
-      <div className="text-2xl font-semibold tracking-tight num">—</div>
+      <div className="text-[26px] leading-none font-semibold tracking-tight text-muted-foreground/40 num">
+        —
+      </div>
     );
   }
 
   return (
-    <div className="text-2xl font-semibold tracking-tight">
+    <div className="text-[26px] leading-none font-semibold tracking-tight">
       <AnimatedValue
         value={rawValue}
         format={format}
@@ -246,7 +250,7 @@ export function KpiTile({
         ) : null}
         {syncLabel ? (
           <p
-            className="text-[10px] uppercase tracking-wide text-muted-foreground mt-2"
+            className="text-[10px] uppercase tracking-wider text-muted-foreground/70 mt-2"
             suppressHydrationWarning
           >
             {syncLabel}

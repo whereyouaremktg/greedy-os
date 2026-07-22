@@ -31,6 +31,7 @@ import {
   type PoStatus,
 } from "@/lib/purchase-orders/statuses";
 import { formatUsd } from "@/lib/format";
+import { poStatusDotClass } from "@/components/purchase-orders/po-status-badge";
 import type { PoRow } from "@/components/purchase-orders/types";
 import { usePrefersReducedMotion } from "@/components/relative-time";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,15 @@ import { cn } from "@/lib/utils";
 
 function applyStatusSideEffects(order: PoRow, status: PoStatus): PoRow {
   return { ...order, status };
+}
+
+// Card-sized date ("Jun 23") — the year would truncate next to the days chip.
+function formatCancelShort(date: string | null): string {
+  if (!date) return "Not set";
+  return new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function CancelCallout({
@@ -74,7 +84,7 @@ function CancelCallout({
             hasDate && variant === "overdue" && "text-destructive",
           )}
         >
-          {formatArrivalDisplay(expectedDate)}
+          {formatCancelShort(expectedDate)}
         </p>
       </div>
       {hasDate && !done ? (
@@ -215,25 +225,30 @@ function PoCardContent({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-3 text-left shadow-xs transition-colors",
-        "hover:border-brand/40",
-        isDragging && "border-brand/50 shadow-sm",
+        "rounded-lg border border-border/70 bg-card p-3 text-left shadow-xs transition-all duration-150",
+        "hover:-translate-y-px hover:border-border hover:shadow-md hover:shadow-black/5",
+        isDragging && "border-brand/50 shadow-lg shadow-black/10",
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-medium leading-tight">
+          <p className="truncate text-[13px] font-semibold leading-tight tracking-tight">
             {order.po_number ? `PO ${order.po_number}` : "Purchase order"}
           </p>
-          <p className="truncate text-[11px] text-muted-foreground">
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
             {order.vendor_name}
           </p>
         </div>
+        <span className="num shrink-0 text-[13px] font-semibold tracking-tight">
+          {formatUsd(order.total, 0)}
+        </span>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-        <span>{order.line_item_count} styles</span>
+        <span>
+          {order.line_item_count} {order.line_item_count === 1 ? "style" : "styles"}
+        </span>
         <span className="num shrink-0">
-          {order.total_units.toLocaleString()} units · {formatUsd(order.total, 0)}
+          {order.total_units.toLocaleString()} units
         </span>
       </div>
       <CancelCallout expectedDate={order.expected_date} status={order.status} />
@@ -298,27 +313,35 @@ function BoardColumn({
 
   return (
     <div className="flex min-w-[220px] flex-1 flex-col lg:min-w-0">
-      <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[13px] font-medium">{PO_STATUS_LABELS[status]}</h3>
-          <Badge variant="secondary" className="num h-5 px-1.5">
+      <div className="mb-2 flex items-center justify-between gap-2 px-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className={cn("size-1.5 shrink-0 rounded-full", poStatusDotClass(status))}
+            aria-hidden
+          />
+          <h3 className="truncate text-[13px] font-medium tracking-tight">
+            {PO_STATUS_LABELS[status]}
+          </h3>
+          <span className="num rounded-full bg-muted px-1.5 py-px text-[11px] font-medium text-muted-foreground">
             {orders.length}
-          </Badge>
+          </span>
         </div>
-        <span className="num text-[11px] text-muted-foreground">
+        <span className="num shrink-0 text-[11px] text-muted-foreground">
           {totalUnits.toLocaleString()} units
         </span>
       </div>
       <div
         ref={setNodeRef}
         className={cn(
-          "flex min-h-[280px] flex-1 flex-col gap-2 rounded-lg border border-dashed p-2 transition-colors",
-          isOver ? "border-brand/50 bg-brand/5" : "border-border/70 bg-muted/20",
+          "flex min-h-[280px] flex-1 flex-col gap-2 rounded-xl border p-2 transition-all duration-150",
+          isOver
+            ? "border-brand/40 bg-brand/5 ring-2 ring-brand/20"
+            : "border-border/50 bg-muted/30",
         )}
       >
         {orders.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-            {PO_STATUS_LABELS[status]} —
+          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border/60 text-xs text-muted-foreground/60">
+            No POs
           </div>
         ) : (
           orders.map((order) => (
