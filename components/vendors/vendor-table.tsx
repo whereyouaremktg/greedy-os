@@ -62,6 +62,24 @@ export function VendorTable({
   const openCreateFromQuery = searchParams.get("new") === "1"
   const createSheetOpen = createOpen || openCreateFromQuery
 
+  const openIdFromQuery = searchParams.get("open")
+  const handledOpenIdRef = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    if (!openIdFromQuery) {
+      handledOpenIdRef.current = null
+      return
+    }
+    if (handledOpenIdRef.current === openIdFromQuery) return
+    const timer = setTimeout(() => {
+      handledOpenIdRef.current = openIdFromQuery
+      const vendor = vendors.find((v) => v.id === openIdFromQuery)
+      if (vendor) setEditing(vendor)
+      else toast.error("Vendor not found")
+      router.replace("/vendors")
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [openIdFromQuery, vendors, router])
+
   function handleCreateOpenChange(open: boolean) {
     setCreateOpen(open)
     if (!open && openCreateFromQuery) {

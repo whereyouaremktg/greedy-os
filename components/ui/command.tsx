@@ -39,22 +39,18 @@ function CommandDialog({
   children,
   className,
   showCloseButton = false,
+  shouldFilter = true,
   ...props
 }: Omit<React.ComponentProps<typeof Dialog>, "children"> & {
   title?: string
   description?: string
   className?: string
   showCloseButton?: boolean
+  shouldFilter?: boolean
   children: React.ReactNode
 }) {
   return (
     <Dialog {...props}>
-      <DialogHeader className="sr-only">
-        <DialogTitle suppressHydrationWarning>{title}</DialogTitle>
-        <DialogDescription suppressHydrationWarning>
-          {description}
-        </DialogDescription>
-      </DialogHeader>
       <DialogContent
         className={cn(
           "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0",
@@ -62,7 +58,15 @@ function CommandDialog({
         )}
         showCloseButton={showCloseButton}
       >
-        {children}
+        <DialogHeader className="sr-only">
+          <DialogTitle suppressHydrationWarning>{title}</DialogTitle>
+          <DialogDescription suppressHydrationWarning>
+            {description}
+          </DialogDescription>
+        </DialogHeader>
+        <Command shouldFilter={shouldFilter} className="gap-0">
+          {children}
+        </Command>
       </DialogContent>
     </Dialog>
   )
@@ -169,6 +173,22 @@ function CommandItem({
   )
 }
 
+function CommandLoading({
+  className,
+  ...props
+}: React.ComponentProps<typeof CommandPrimitive.Loading>) {
+  return (
+    <CommandPrimitive.Loading
+      data-slot="command-loading"
+      className={cn(
+        "py-6 text-center text-sm text-muted-foreground",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
 function CommandShortcut({
   className,
   ...props
@@ -193,6 +213,7 @@ export {
   CommandEmpty,
   CommandGroup,
   CommandItem,
+  CommandLoading,
   CommandShortcut,
   CommandSeparator,
 }

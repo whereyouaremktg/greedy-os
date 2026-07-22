@@ -50,6 +50,24 @@ export function CampaignsView({
   const openCreateFromQuery = searchParams.get("new") === "1";
   const createSheetOpen = createOpen || openCreateFromQuery;
 
+  const openIdFromQuery = searchParams.get("open");
+  const handledOpenIdRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!openIdFromQuery) {
+      handledOpenIdRef.current = null;
+      return;
+    }
+    if (handledOpenIdRef.current === openIdFromQuery) return;
+    const timer = setTimeout(() => {
+      handledOpenIdRef.current = openIdFromQuery;
+      const campaign = initialCampaigns.find((c) => c.id === openIdFromQuery);
+      if (campaign) setSelected(campaign);
+      else toast.error("Campaign not found");
+      router.replace("/campaigns");
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [openIdFromQuery, initialCampaigns, router]);
+
   const boardTasks = flattenBoardTasks(initialCampaigns);
   const boardKey = boardTasks
     .map((t) => `${t.id}:${t.status}:${t.due_date ?? ""}`)

@@ -79,6 +79,24 @@ export function ManufacturingView({
   const createSheetOpen = createOpen || openCreateFromQuery;
   const uploadSheetOpen = uploadOpen || openUploadFromQuery;
 
+  const openIdFromQuery = searchParams.get("open");
+  const handledOpenIdRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!openIdFromQuery) {
+      handledOpenIdRef.current = null;
+      return;
+    }
+    if (handledOpenIdRef.current === openIdFromQuery) return;
+    const timer = setTimeout(() => {
+      handledOpenIdRef.current = openIdFromQuery;
+      const run = initialRuns.find((r) => r.id === openIdFromQuery);
+      if (run) setEditing(run);
+      else toast.error("Run not found");
+      router.replace("/manufacturing");
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [openIdFromQuery, initialRuns, router]);
+
   function openCreateSheet() {
     setCreateOpen(true);
   }
