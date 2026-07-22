@@ -335,6 +335,13 @@ export type PoPayments = {
   overdueCount: number;
   dueNext14Amount: number;
   overdueAmount: number;
+  openCount: number;
+  openAmount: number;
+  confirmedCount: number;
+  fulfillmentCount: number;
+  shippedCount: number;
+  receivedCount: number;
+  closedCount: number;
 };
 
 export async function getPoPaymentsStatus(supabase: DB): Promise<PoPayments> {
@@ -345,17 +352,23 @@ export async function getPoPaymentsStatus(supabase: DB): Promise<PoPayments> {
   horizon.setUTCDate(horizon.getUTCDate() + 14);
   const horizonIso = horizon.toISOString().slice(0, 10);
 
-  const { data } = await supabase
-    .from("po_payments")
-    .select("amount, due_date, paid")
-    .eq("paid", false)
-    .not("due_date", "is", null);
+  const [{ data: paymentRows }, { data: orderRows }] = await Promise.all([
+    supabase
+      .from("po_payments")
+      .select("amount, due_date, paid")
+      .eq("paid", false)
+      .not("due_date", "is", null),
+    supabase.from("purchase_orders").select("status, total"),
+  ]);
 
-  const rows = data ?? [];
+  const rows = paymentRows ?? [];
+  const orders = orderRows ?? [];
   let dueNext14Count = 0;
   let overdueCount = 0;
   let dueNext14Amount = 0;
   let overdueAmount = 0;
+  let openCount = 0;
+  let openAmount = 0;
 
   for (const p of rows) {
     if (!p.due_date) continue;
@@ -368,7 +381,32 @@ export async function getPoPaymentsStatus(supabase: DB): Promise<PoPayments> {
     }
   }
 
-  return { dueNext14Count, overdueCount, dueNext14Amount, overdueAmount };
+  for (const order of orders) {
+    if (
+      order.status !== "draft" &&
+      order.status !== "cancelled" &&
+      order.status !== "closed"
+    ) {
+      openCount++;
+      openAmount += order.total ?? 0;
+    }
+  }
+
+  return {
+    dueNext14Count,
+    overdueCount,
+    dueNext14Amount,
+    overdueAmount,
+    openCount,
+    openAmount,
+    confirmedCount: orders.filter((o) => o.status === "confirmed").length,
+    fulfillmentCount: orders.filter((o) => o.status === "in_fulfillment").length,
+    shippedCount: orders.filter(
+      (o) => o.status === "shipped" || o.status === "partially_received",
+    ).length,
+    receivedCount: orders.filter((o) => o.status === "received").length,
+    closedCount: orders.filter((o) => o.status === "closed").length,
+  };
 }
 
 export type ChannelRevenuePoint = {
@@ -446,24 +484,52 @@ export async function getRevenueByChannel(
 }
 
 export type InProduction = {
+  allCount: number;
   total: number;
   ordered: number;
   inProduction: number;
+  complete: number;
+  inTransit: number;
+  received: number;
+  activeUnits: number;
+  arrivingNext14Count: number;
+  arrivingNext14Units: number;
 };
 
 export async function getInProductionCount(
   supabase: DB,
 ): Promise<InProduction> {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const horizon = new Date(today);
+  horizon.setUTCDate(horizon.getUTCDate() + 14);
+  const horizonIso = horizon.toISOString().slice(0, 10);
+
   const { data } = await supabase
     .from("manufacturing_runs")
-    .select("stage")
-    .in("stage", ["ordered", "in_production"]);
+    .select("stage, quantity, expected_arrival_date");
 
   const rows = data ?? [];
+  const active = rows.filter((r) =>
+    ["ordered", "in_production", "complete", "in_transit"].includes(r.stage),
+  );
+  const arrivingNext14 = active.filter(
+    (r) => r.expected_arrival_date && r.expected_arrival_date <= horizonIso,
+  );
+
   return {
-    total: rows.length,
+    allCount: rows.length,
+    total: active.length,
     ordered: rows.filter((r) => r.stage === "ordered").length,
     inProduction: rows.filter((r) => r.stage === "in_production").length,
+    complete: rows.filter((r) => r.stage === "complete").length,
+    inTransit: rows.filter((r) => r.stage === "in_transit").length,
+    received: rows.filter((r) => r.stage === "received").length,
+    activeUnits: active.reduce((sum, r) => sum + (r.quantity ?? 0), 0),
+    arrivingNext14Count: arrivingNext14.length,
+    arrivingNext14Units: arrivingNext14.reduce(
+      (sum, r) => sum + (r.quantity ?? 0),
+      0,
+    ),
   };
 }
-
