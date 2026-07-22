@@ -482,3 +482,32 @@ export async function fetchPurchaseOrderDetail(
     },
   };
 }
+
+// Line items and payments cascade at the DB level; linked manufacturing
+// runs and inbound email logs keep their rows with the PO reference nulled.
+export async function deletePurchaseOrderCore(
+  supabase: Client,
+  id: string,
+): Promise<PoCoreResult<{ id: string; po_number: string | null }>> {
+  const { data, error } = await supabase
+    .from("purchase_orders")
+    .delete()
+    .eq("id", id)
+    .select("id, po_number")
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      error: dbError(error, "Failed to delete purchase order"),
+    };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      error: { code: "NOT_FOUND", message: "Purchase order not found" },
+    };
+  }
+
+  return { ok: true, data: { id: data.id, po_number: data.po_number } };
+}

@@ -7,6 +7,7 @@ import { revalidateTimelinePaths } from "@/lib/timeline/revalidate";
 
 import {
   createPurchaseOrderCore,
+  deletePurchaseOrderCore,
   fetchPurchaseOrderDetail,
   updatePoDetailsCore,
   updatePoLabelsCore,
@@ -246,6 +247,28 @@ export async function updatePoLabels(
   }
 
   revalidatePath("/purchase-orders");
+  return { ok: true, data: result.data };
+}
+
+export async function deletePurchaseOrder(
+  id: string,
+): Promise<ActionResult<{ id: string; po_number: string | null }>> {
+  const idResult = z.string().uuid().safeParse(id);
+  if (!idResult.success) {
+    return { ok: false, error: "Invalid purchase order id" };
+  }
+
+  const supabase = await createClient();
+  const result = await deletePurchaseOrderCore(supabase, idResult.data);
+
+  if (!result.ok) {
+    return { ok: false, error: result.error.message };
+  }
+
+  revalidateTimelinePaths();
+  revalidatePath("/purchase-orders");
+  revalidatePath("/vendors");
+
   return { ok: true, data: result.data };
 }
 

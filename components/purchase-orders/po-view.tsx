@@ -48,6 +48,25 @@ export function PoView({
   const openUploadFromQuery = searchParams.get("new") === "1";
   const uploadSheetOpen = uploadOpen || openUploadFromQuery;
 
+  const openIdFromQuery = searchParams.get("open");
+  const handledOpenIdRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!openIdFromQuery) {
+      handledOpenIdRef.current = null;
+      return;
+    }
+    if (handledOpenIdRef.current === openIdFromQuery) return;
+    const timer = setTimeout(() => {
+      handledOpenIdRef.current = openIdFromQuery;
+      // Open by id directly — the detail sheet fetches and has its own
+      // loading/error states, so this works even for POs beyond the
+      // server-fetched list (and surfaces an error for deleted ones).
+      void openPoDetail({ id: openIdFromQuery });
+      router.replace("/purchase-orders");
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [openIdFromQuery, orders, router]);
+
   const boardOrders = orders.filter((o) => isPoOnBoard(o.status));
   const boardKey = boardOrders
     .map((o) => `${o.id}:${o.updated_at}:${o.status}`)
@@ -66,7 +85,7 @@ export function PoView({
     handleUploadOpenChange(false);
   }
 
-  async function openPoDetail(order: PoRow) {
+  async function openPoDetail(order: Pick<PoRow, "id">) {
     setDetailOpen(true);
     setDetailLoading(true);
     setDetail(null);
@@ -91,6 +110,11 @@ export function PoView({
   }
 
   function handleDetailSaved() {
+    router.refresh();
+  }
+
+  function handleDetailDeleted() {
+    handleDetailOpenChange(false);
     router.refresh();
   }
 
@@ -177,6 +201,7 @@ export function PoView({
         open={detailOpen}
         onOpenChange={handleDetailOpenChange}
         onSaved={handleDetailSaved}
+        onDeleted={handleDetailDeleted}
       />
     </>
   );

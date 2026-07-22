@@ -1,9 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Sheet,
   SheetContent,
@@ -21,12 +29,14 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { CorrespondencePanel } from "@/components/inbound/correspondence-panel";
+import { PoStatusBadge } from "@/components/purchase-orders/po-status-badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { formatUsd } from "@/lib/format";
 import {
+  deletePurchaseOrder,
   updatePoDetails,
   updatePoLabels,
   updatePoLineCosts,
@@ -93,6 +103,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved?: () => void;
+  onDeleted?: () => void;
 };
 
 function formatDate(date: string | null): string {
@@ -468,16 +479,38 @@ export function PoDetailSheet({
   open,
   onOpenChange,
   onSaved,
+  onDeleted,
 }: Props) {
   const totalUnits =
     detail?.line_items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
+
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
+  const [deletePending, startDeleteTransition] = React.useTransition();
+
+  function handleDelete() {
+    if (!detail) return;
+    const label = detail.po_number
+      ? `PO ${detail.po_number}`
+      : `${detail.vendor_name} PO`;
+    startDeleteTransition(async () => {
+      const result = await deletePurchaseOrder(detail.id);
+      if (result.ok) {
+        toast.success(`Deleted ${label}`);
+        setConfirmDeleteOpen(false);
+        onDeleted?.();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
-          <SheetTitle>
+          <SheetTitle className="flex items-center gap-2.5">
             {detail?.po_number ? `PO ${detail.po_number}` : "Purchase order"}
+            {detail ? <PoStatusBadge status={detail.status} /> : null}
           </SheetTitle>
           <SheetDescription>
             {detail?.vendor_name ?? "Loading…"}
@@ -608,9 +641,65 @@ export function PoDetailSheet({
                 entityId={detail.id}
               />
             </div>
+
+            <div className="flex items-center justify-between rounded-md border border-destructive/30 p-4">
+              <div>
+                <h3 className="text-sm font-medium">Delete this PO</h3>
+                <p className="text-xs text-muted-foreground">
+                  Removes the PO with its line items and payments.
+                </p>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setConfirmDeleteOpen(true)}
+              >
+                <Trash2 />
+                Delete
+              </Button>
+            </div>
           </div>
         ) : null}
       </SheetContent>
+
+      <Dialog
+        open={confirmDeleteOpen}
+        onOpenChange={(o) => {
+          if (!deletePending) setConfirmDeleteOpen(o);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete purchase order?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete{" "}
+              <span className="font-medium text-foreground">
+                {detail?.po_number
+                  ? `PO ${detail.po_number}`
+                  : "this purchase order"}
+              </span>{" "}
+              from {detail?.vendor_name} along with its line items and payment
+              schedule. Linked manufacturing runs and emails are kept.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDeleteOpen(false)}
+              disabled={deletePending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deletePending}
+            >
+              {deletePending ? "Deleting…" : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }
