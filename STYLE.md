@@ -62,7 +62,8 @@ Fonts: **Geist Sans** (body), **Geist Mono** (code / tooltips).
 | `ViewTransitionWrapper` | `components/providers/view-transition-wrapper.tsx` | Page cross-fade; respects reduced motion |
 | `PoView` | `components/purchase-orders/po-view.tsx` | Client shell for Purchase Orders: header, board/list tabs, upload + review + detail sheets. |
 | `PoBoard` | `components/purchase-orders/po-board.tsx` | Drag-and-drop column board for active POs. |
-| `PoListTable` | `components/purchase-orders/po-list-table.tsx` | Full list view of all POs. |
+| `PoListTable` | `components/purchase-orders/po-list-table.tsx` | Full list view of all POs. Buyer monograms, semantic status pills, urgency-aware cancel dates (red/amber only when overdue/≤7d). |
+| `PoStatusBadge` | `components/purchase-orders/po-status-badge.tsx` | Dot + tinted pill per PO pipeline stage (neutral → brand → sky → violet → teal → emerald). `poStatusDotClass` exported for board column headers. |
 | `PoDetailSheet` | `components/purchase-orders/po-detail-sheet.tsx` | Right Sheet for editing a single PO + payments. |
 | `PoReviewDialog` | `components/purchase-orders/po-review-dialog.tsx` | Reviews a parsed PO before insert. |
 | `PoUploadDropzone` | `components/purchase-orders/po-upload.tsx` | PDF / image dropzone that parses a PO with the LLM. |
