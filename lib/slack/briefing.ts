@@ -50,11 +50,15 @@ an item across sections — the old both-places habit is exactly what we're kill
    approaching ones). Each bullet: *{Vendor}* \`{PO/product}\` — the situation in one
    clause, then the concrete next step with who and the deadline. 1–5 bullets.
    If none, write: Nothing urgent today.
-3. *Watching* — the "watch" rows, one terse line each:
-   *{Vendor}* \`{PO/product}\` — {status} · {ETA} · the single open thing, if any.
-   No commentary beyond that. Skip the section entirely if empty.
-4. *On track* — ONE rolled-up line for all "ok" rows: names with ETAs, comma-separated
-   ("ANTHRO \`4811\` (Aug 7), JillyBox \`PO 1\` (Dec 9)"). Skip if empty.
+3. *Watching* — "watch" rows that are genuinely waiting on someone or something,
+   one terse line each: *{Vendor}* \`{PO/product}\` — {status} · {ETA} · the single
+   open thing. No commentary beyond that. Skip the section entirely if empty.
+   Exception: a "watch" row whose only flag is "no correspondence yet" with an ETA
+   more than two weeks out isn't worth watching — demote it to On track.
+4. *On track* — ONE rolled-up line: the "ok" rows plus anything demoted from
+   Watching, names with ETAs, comma-separated ("ANTHRO \`4811\` (Aug 7), JillyBox
+   \`PO 1\` (Dec 9)"). A row listed in Watching must NOT reappear here. If nothing
+   qualifies, omit the section — never re-list Watching rows to fill it.
 5. Footer: one dim line — _{date} · {N} runs · {N} POs monitored · {N} emails in needs-review_
 
 Separate sections with a line containing only "---" (it renders as a divider).
