@@ -24,6 +24,15 @@ export type RadarLine = {
   light: "🔴" | "🟡" | "🟢";
   line: string;
   needsAttention: string[];
+  /** Structured facts for the LLM briefing writer (lib/slack/briefing.ts). */
+  facts: {
+    vendor: string;
+    item: string;
+    status: string;
+    eta: string | null;
+    flags: string[];
+    appliedToday: string[];
+  };
 };
 
 function daysAgo(iso: string | null, today: string): number | null {
@@ -101,6 +110,16 @@ function assess(
     light,
     line: parts.join(" — "),
     needsAttention: attention,
+    facts: {
+      vendor: entity.vendorName,
+      item: isManufacturing
+        ? `${entity.record.product_name} ×${entity.record.quantity.toLocaleString()}`
+        : `PO ${entity.record.po_number ?? "?"}`,
+      status: stateLabel,
+      eta,
+      flags: attention,
+      appliedToday: applied,
+    },
   };
 }
 
