@@ -114,7 +114,9 @@ function assess(
       vendor: entity.vendorName,
       item: isManufacturing
         ? `${entity.record.product_name} ×${entity.record.quantity.toLocaleString()}`
-        : `PO ${entity.record.po_number ?? "?"}`,
+        : entity.record.po_number
+          ? `PO ${entity.record.po_number}`
+          : `unnumbered PO from ${entity.record.order_date ?? "unknown date"}`,
       status: stateLabel,
       eta,
       flags: attention,
