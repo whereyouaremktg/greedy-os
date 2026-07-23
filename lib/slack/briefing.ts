@@ -4,7 +4,7 @@ import { generateText } from "ai";
 
 import { withModelFallback } from "@/lib/ai/generate";
 import { GLOW_DIGEST_MODEL } from "@/lib/ai/model";
-import { sectionBlock } from "@/lib/slack/blocks";
+import { contextBlock, dividerBlock, sectionBlock } from "@/lib/slack/blocks";
 import type { Block } from "@slack/web-api";
 
 // Paul's morning-briefing voice (July 2026). The "# DATA" section of the
@@ -98,7 +98,7 @@ export function sanitizeMrkdwn(text: string): string {
 }
 
 export async function composeBriefing(data: BriefingData): Promise<string> {
-  const prompt = `Today is ${data.weekday}.
+  const prompt = `Today is ${data.weekday}. Use exactly this date in the header and footer — never derive today's date from the data (sales can sync a day ahead in UTC).
 
 # DATA
 ${JSON.stringify(data, null, 2)}`;
@@ -115,18 +115,46 @@ ${JSON.stringify(data, null, 2)}`;
 /** Slack caps section blocks at 3000 chars — split on line boundaries. */
 const SECTION_LIMIT = 2900;
 
+/**
+ * mrkdwn text → Slack blocks. Standalone `---` lines become real divider
+ * blocks (Slack renders literal dashes otherwise), standalone fully-italic
+ * lines become dim context blocks (the "vitals"/footer lines in the brief),
+ * everything else accumulates into section blocks under the size cap.
+ */
 export function briefingBlocks(text: string): Block[] {
-  const out: string[] = [];
+  const out: Block[] = [];
   let current = "";
-  for (const line of text.split("\n")) {
+
+  const flush = () => {
+    if (current.trim()) out.push(sectionBlock(current));
+    current = "";
+  };
+
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+
+    if (/^-{3,}$/.test(trimmed) || /^[*_]{3,}$/.test(trimmed)) {
+      flush();
+      out.push(dividerBlock());
+      continue;
+    }
+    if (/^_[^_]+_$/.test(trimmed)) {
+      flush();
+      out.push(contextBlock(trimmed));
+      continue;
+    }
+
     const candidate = current ? `${current}\n${line}` : line;
     if (candidate.length > SECTION_LIMIT) {
-      if (current) out.push(current);
+      flush();
       current = line;
     } else {
       current = candidate;
     }
   }
-  if (current.trim()) out.push(current);
-  return out.map((chunk) => sectionBlock(chunk));
+  flush();
+
+  // Slack rejects messages with zero blocks; never return empty.
+  return out.length > 0 ? out : [sectionBlock(text.slice(0, SECTION_LIMIT))];
 }

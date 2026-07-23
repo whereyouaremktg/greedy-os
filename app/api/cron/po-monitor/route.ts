@@ -1,5 +1,3 @@
-import { format } from "date-fns";
-
 import { runCronJob, verifyCronSecret } from "@/lib/cron-auth";
 import { listOpenEntities, monitorEntity, type RadarLine } from "@/lib/inbound/monitor";
 import {
@@ -110,8 +108,18 @@ export async function GET(request: Request) {
         ? ` · ${reviewCount} email${reviewCount === 1 ? "" : "s"} in needs-review`
         : "");
 
+    // The team runs on Eastern time; at the scheduled 14:00 UTC run this
+    // matches the UTC date, but manual/dry runs late in the ET evening
+    // shouldn't label the brief with tomorrow's date.
+    const weekday = now.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+      timeZone: "America/New_York",
+    });
+
     const briefingData: BriefingData = {
-      weekday: format(now, "EEEE, MMM d"),
+      weekday,
       salesThru: salesRow?.as_of_date ?? null,
       cashThru: cashRow?.as_of_date ?? null,
       needsReviewEmails: reviewCount ?? 0,
