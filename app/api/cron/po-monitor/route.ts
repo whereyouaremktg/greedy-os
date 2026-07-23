@@ -24,7 +24,9 @@ import { createServiceClient } from "@/lib/supabase/service";
 // 🔴/🟡/🟢 block layout — the daily brief must never silently not arrive.
 //
 // `?dry=1` composes and RETURNS the briefing without posting to Slack — for
-// iterating on the prompt against real data.
+// iterating on the prompt against real data. `?test=1` POSTS the briefing
+// with a throwaway dedupe key and a test marker, so the day's scheduled run
+// still sends normally.
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -61,7 +63,9 @@ function toBriefingRow(l: RadarLine): BriefingData["runs"][number] {
 export async function GET(request: Request) {
   const denied = verifyCronSecret(request);
   if (denied) return denied;
-  const dry = new URL(request.url).searchParams.get("dry") === "1";
+  const params = new URL(request.url).searchParams;
+  const dry = params.get("dry") === "1";
+  const test = !dry && params.get("test") === "1";
 
   return runCronJob("po-monitor", async () => {
     const supabase = createServiceClient();
@@ -144,17 +148,29 @@ export async function GET(request: Request) {
       };
     }
 
+    const messageBlocks = briefing
+      ? briefingBlocks(briefing)
+      : legacyBlocks(runLines, poLines, footer);
+
     await sendSlack({
       channel: getSlackDefaultChannel(),
-      dedupeKey: `po-monitor:${today}`,
-      text: summary,
-      blocks: briefing
-        ? briefingBlocks(briefing)
-        : legacyBlocks(runLines, poLines, footer),
+      dedupeKey: test
+        ? `po-monitor:test:${Date.now()}`
+        : `po-monitor:${today}`,
+      text: test ? `[test] ${summary}` : summary,
+      blocks: test
+        ? [
+            ...messageBlocks,
+            contextBlock(
+              "_test post — the scheduled morning brief will still send_",
+            ),
+          ]
+        : messageBlocks,
     });
 
     return {
       ok: true,
+      test,
       usedFallback: briefing == null,
       monitored: { runs: runLines.length, pos: poLines.length },
       attention: attention.length,
