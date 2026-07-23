@@ -56,8 +56,10 @@ function legacyBlocks(
   );
 }
 
+const SEVERITY = { "🔴": "action", "🟡": "watch", "🟢": "ok" } as const;
+
 function toBriefingRow(l: RadarLine): BriefingData["runs"][number] {
-  return { kind: l.entityType, dot: l.light, ...l.facts };
+  return { kind: l.entityType, severity: SEVERITY[l.light], ...l.facts };
 }
 
 export async function GET(request: Request) {
