@@ -23,15 +23,18 @@ const config: VercelConfig = {
     // 6h — polite to the shared ShipHero credit bucket (it's Retroship's account).
     { path: "/api/cron/shiphero", schedule: "0 */6 * * *" },
     { path: "/api/cron/slack-triggers", schedule: "*/15 * * * *" },
-    // Daily morning briefing — re-enabled at Paul's request (June 2026), now
-    // every day (sales move on weekends too). 13:00 UTC = 9am ET.
-    { path: "/api/cron/slack-digest", schedule: "0 13 * * *" },
+    // Daily morning briefing (13:00 UTC = 9am ET) — DISABLED 2026-08-26 at
+    // Paul's request: it posted every day whether or not anything had changed,
+    // so it read as stale. The route (/api/cron/slack-digest) and the digest
+    // builder (lib/slack/digest.ts) are untouched — re-enable by uncommenting
+    // the line below and pushing to main.
+    // { path: "/api/cron/slack-digest", schedule: "0 13 * * *" },
     // Connector watchdog — hourly freshness + OAuth-token check; Slacks
     // #greedy-os (deduped per day) on staleness / disconnect / token expiry.
     { path: "/api/cron/health", schedule: "0 * * * *" },
     // Daily PO/manufacturing radar — re-runs the email extraction agent over
-    // every open run + wholesale PO and posts 🔴🟡🟢 status to Slack. After
-    // the 13:00 digest so the radar lands second.
+    // every open run + wholesale PO and posts 🔴🟡🟢 status to Slack. Now the
+    // only scheduled daily Slack post (the 13:00 briefing is off).
     { path: "/api/cron/po-monitor", schedule: "0 14 * * *" },
   ],
 };
