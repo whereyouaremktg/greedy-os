@@ -15,9 +15,15 @@ const config: VercelConfig = {
     // is kept as code for a future "production keys" upgrade, but is unscheduled
     // so it can't fail+alert without production OAuth tokens.
     { path: "/api/cron/shopify", schedule: "0 */2 * * *" },
+    // Q4 Targets: Shopify orders for the tracked quarters (incremental by
+    // updated_at). Every 6h; the dashboard also has a manual Refresh.
+    { path: "/api/cron/targets-sync", schedule: "20 */6 * * *" },
     // Sales history changes slowly — refresh weekly (Mon 11:00 UTC).
     { path: "/api/cron/shopify-sales-history", schedule: "0 11 * * 1" },
-    { path: "/api/cron/klaviyo", schedule: "0 */4 * * *" },
+    // Klaviyo is UNSCHEDULED (2026-10-20): lib/pullers/klaviyo.ts is still a
+    // deterministic mock and was writing invented numbers into klaviyo_metrics
+    // every 4h. Re-add once a real Metrics API puller exists.
+    // { path: "/api/cron/klaviyo", schedule: "0 */4 * * *" },
     { path: "/api/cron/hubspot", schedule: "0 */6 * * *" },
     // ShipHero (Retroship 3PL): on-hand + inbound POs + wholesale orders. Every
     // 6h — polite to the shared ShipHero credit bucket (it's Retroship's account).

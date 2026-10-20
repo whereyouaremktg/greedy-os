@@ -44,6 +44,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-chart-accent: var(--chart-accent);
+  --color-chart-compare: var(--chart-compare);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -83,6 +85,9 @@
   --chart-3: hsl(200 60% 45%);
   --chart-4: hsl(38 85% 48%);
   --chart-5: hsl(350 65% 52%);
+  /* Chart marks: accent = this year, compare = last year (de-emphasis). */
+  --chart-accent: hsl(30 65% 55%);
+  --chart-compare: hsl(30 4% 62%);
   --radius: 0.5rem;
   --sidebar: hsl(40 18% 97%);
   --sidebar-foreground: hsl(30 6% 22%);
@@ -124,6 +129,8 @@
   --chart-3: hsl(200 55% 55%);
   --chart-4: hsl(38 80% 55%);
   --chart-5: hsl(350 60% 58%);
+  --chart-accent: hsl(30 75% 47%);
+  --chart-compare: hsl(35 5% 48%);
   --sidebar: hsl(30 6% 5%);
   --sidebar-foreground: hsl(40 8% 82%);
   --sidebar-primary: hsl(32 58% 58%);

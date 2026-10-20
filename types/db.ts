@@ -902,6 +902,224 @@ export type Database = {
         }
         Relationships: []
       }
+      shopify_orders: {
+        Row: {
+          app_name: string | null
+          bucket: string
+          bucket_reason: string | null
+          cancelled_at: string | null
+          channel_name: string | null
+          created_at: string
+          customer_order_count: number | null
+          day_local: string
+          discounts: number
+          financial_status: string | null
+          first_fulfilled_at: string | null
+          fulfillment_status: string | null
+          gross_sales: number
+          id: string
+          name: string
+          net_sales: number
+          processed_at: string
+          returns: number
+          shipping: number
+          source_name: string | null
+          synced_at: string
+          tags: string[]
+          tax: number
+          total: number
+          units: number
+          updated_at: string
+        }
+        Insert: {
+          app_name?: string | null
+          bucket: string
+          bucket_reason?: string | null
+          cancelled_at?: string | null
+          channel_name?: string | null
+          created_at: string
+          customer_order_count?: number | null
+          day_local: string
+          discounts?: number
+          financial_status?: string | null
+          first_fulfilled_at?: string | null
+          fulfillment_status?: string | null
+          gross_sales?: number
+          id: string
+          name: string
+          net_sales?: number
+          processed_at: string
+          returns?: number
+          shipping?: number
+          source_name?: string | null
+          synced_at?: string
+          tags?: string[]
+          tax?: number
+          total?: number
+          units?: number
+          updated_at: string
+        }
+        Update: {
+          app_name?: string | null
+          bucket?: string
+          bucket_reason?: string | null
+          cancelled_at?: string | null
+          channel_name?: string | null
+          created_at?: string
+          customer_order_count?: number | null
+          day_local?: string
+          discounts?: number
+          financial_status?: string | null
+          first_fulfilled_at?: string | null
+          fulfillment_status?: string | null
+          gross_sales?: number
+          id?: string
+          name?: string
+          net_sales?: number
+          processed_at?: string
+          returns?: number
+          shipping?: number
+          source_name?: string | null
+          synced_at?: string
+          tags?: string[]
+          tax?: number
+          total?: number
+          units?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shopify_order_lines: {
+        Row: {
+          current_quantity: number
+          discounted: number
+          gross: number
+          is_product: boolean
+          line_index: number
+          order_id: string
+          product_id: string | null
+          quantity: number
+          sku: string | null
+          title: string | null
+          variant_id: string | null
+          variant_title: string | null
+        }
+        Insert: {
+          current_quantity?: number
+          discounted?: number
+          gross?: number
+          is_product?: boolean
+          line_index: number
+          order_id: string
+          product_id?: string | null
+          quantity?: number
+          sku?: string | null
+          title?: string | null
+          variant_id?: string | null
+          variant_title?: string | null
+        }
+        Update: {
+          current_quantity?: number
+          discounted?: number
+          gross?: number
+          is_product?: boolean
+          line_index?: number
+          order_id?: string
+          product_id?: string | null
+          quantity?: number
+          sku?: string | null
+          title?: string | null
+          variant_id?: string | null
+          variant_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopify_order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "shopify_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      targets_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      targets_sync_runs: {
+        Row: {
+          complete: boolean
+          finished_at: string | null
+          id: number
+          job: string
+          message: string | null
+          ok: boolean | null
+          orders_upserted: number
+          pages: number
+          started_at: string
+          trigger: string
+        }
+        Insert: {
+          complete?: boolean
+          finished_at?: string | null
+          id?: number
+          job: string
+          message?: string | null
+          ok?: boolean | null
+          orders_upserted?: number
+          pages?: number
+          started_at?: string
+          trigger?: string
+        }
+        Update: {
+          complete?: boolean
+          finished_at?: string | null
+          id?: number
+          job?: string
+          message?: string | null
+          ok?: boolean | null
+          orders_upserted?: number
+          pages?: number
+          started_at?: string
+          trigger?: string
+        }
+        Relationships: []
+      }
+      targets_sync_state: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           contact_name: string | null
@@ -940,7 +1158,22 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      shopify_daily_sales: {
+        Row: {
+          bucket: string | null
+          day_local: string | null
+          discounts: number | null
+          fulfilled_orders: number | null
+          gross_sales: number | null
+          net_sales: number | null
+          new_customers: number | null
+          orders: number | null
+          returns: number | null
+          shipping: number | null
+          units: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
