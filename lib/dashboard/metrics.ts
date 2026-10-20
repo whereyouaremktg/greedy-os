@@ -136,6 +136,14 @@ export type RevenueTrend = {
   dtcDelta?: MetricDelta;
   aovTrend?: number[];
   aovDelta?: MetricDelta;
+  /** The dates the trailing totals actually cover (oldest → newest synced day). */
+  window: MetricWindow;
+};
+
+export type MetricWindow = {
+  start: string | null; // YYYY-MM-DD
+  end: string | null;
+  days: number;
 };
 
 export async function getRevenueTrend(supabase: DB): Promise<RevenueTrend> {
@@ -193,6 +201,11 @@ export async function getRevenueTrend(supabase: DB): Promise<RevenueTrend> {
     dtcDelta: deltaFromSeries(dtcTrend, "vs prior 7d"),
     aovTrend: aovTrend.length > 1 ? aovTrend : undefined,
     aovDelta: deltaFromSeries(aovTrend, "vs prior 7d"),
+    window: {
+      start: points[0]?.date ?? null,
+      end: points[points.length - 1]?.date ?? null,
+      days: points.length,
+    },
   };
 }
 

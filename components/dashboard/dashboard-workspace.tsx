@@ -10,6 +10,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
   BarChart3,
+  CalendarRange,
   CircleCheck,
   Clock3,
   DollarSign,
@@ -482,6 +483,49 @@ function AttentionQueue({
   );
 }
 
+/** "Sep 21 – Oct 20, 2026" from YYYY-MM-DD bounds; dates are store days, no zone shift. */
+function formatDateRange(window: RevenueTrend["window"]): string {
+  if (!window.start || !window.end) return "no data yet";
+  const day = (iso: string, withYear: boolean) =>
+    new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: withYear ? "numeric" : undefined,
+      timeZone: "UTC",
+    });
+  const sameYear = window.start.slice(0, 4) === window.end.slice(0, 4);
+  return `${day(window.start, !sameYear)} – ${day(window.end, true)}`;
+}
+
+// The one place that says which dates the numbers cover. Revenue tiles and the
+// channel chart are trailing 30 synced days; the deltas compare halves of the
+// last 14; cash and AR are point-in-time snapshots.
+function DateRangeStrip({ window }: { window: RevenueTrend["window"] }) {
+  const hasData = Boolean(window.start && window.end);
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border bg-card/50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex min-w-0 items-center gap-2">
+        <CalendarRange className="size-4 shrink-0 text-brand" />
+        <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          Date range
+        </span>
+        <span className="truncate text-sm font-medium num">
+          {hasData ? formatDateRange(window) : "No Shopify data synced yet"}
+        </span>
+        {hasData ? (
+          <span className="hidden text-xs text-muted-foreground sm:inline">
+            · trailing {window.days} synced days
+          </span>
+        ) : null}
+      </div>
+      <div className="text-[11px] text-muted-foreground">
+        Revenue and orders cover this range through the last Shopify sync. Deltas compare the last 7 days with the
+        7 before; cash and receivables are point-in-time snapshots.
+      </div>
+    </div>
+  );
+}
+
 function SourceFreshnessStrip({
   staleAfter,
   cash,
@@ -755,6 +799,8 @@ export function DashboardWorkspace({
         </div>
       </div>
 
+      <DateRangeStrip window={revenue.window} />
+
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <PulseMetric
           icon={TrendingUp}
@@ -834,7 +880,7 @@ export function DashboardWorkspace({
                   />,
                 )}
 
-                <Section title="Top metrics" subtitle="Trailing 30 days">
+                <Section title="Top metrics" subtitle={`Trailing 30 days · ${formatDateRange(revenue.window)}`}>
                   <MetricGrid>
                     {maybe(
                       "dtcRevenue",
