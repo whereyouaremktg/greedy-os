@@ -211,14 +211,31 @@ function compare(
 }
 
 async function fetchDaily(db: DB, start: string, end: string): Promise<DailyRow[]> {
-  const { data, error } = await db
-    .from("shopify_daily_sales")
-    .select("day_local, bucket, orders, gross_sales, discounts, returns, net_sales, units")
-    .gte("day_local", start)
-    .lte("day_local", end)
-    .limit(5000);
-  if (error) throw new Error(`shopify_daily_sales: ${error.message}`);
-  return (data ?? []).map((r) => ({
+  type Raw = {
+    day_local: string | null;
+    bucket: string | null;
+    orders: number | null;
+    gross_sales: number | null;
+    discounts: number | null;
+    returns: number | null;
+    net_sales: number | null;
+    units: number | null;
+  };
+  const all: Raw[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db
+      .from("shopify_daily_sales")
+      .select("day_local, bucket, orders, gross_sales, discounts, returns, net_sales, units")
+      .gte("day_local", start)
+      .lte("day_local", end)
+      .order("day_local")
+      .order("bucket")
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`shopify_daily_sales: ${error.message}`);
+    all.push(...((data ?? []) as Raw[]));
+    if ((data ?? []).length < PAGE) break;
+  }
+  return all.map((r) => ({
     day_local: String(r.day_local),
     bucket: String(r.bucket),
     orders: n(r.orders),
@@ -278,15 +295,26 @@ async function fetchSync(db: DB): Promise<SyncStatus> {
 
 type OrderSlaRow = { day_local: string; first_fulfilled_at: string | null; bucket: string };
 
+// PostgREST caps a single response at 1,000 rows; page through anything that
+// can exceed that (BF–CM alone is ~4,000 orders).
+const PAGE = 1000;
+
 async function fetchSlaOrders(db: DB, start: string, end: string): Promise<OrderSlaRow[]> {
-  const { data, error } = await db
-    .from("shopify_orders")
-    .select("day_local, first_fulfilled_at, bucket")
-    .gte("day_local", start)
-    .lte("day_local", end)
-    .limit(20000);
-  if (error) throw new Error(`shopify_orders (sla): ${error.message}`);
-  return (data ?? []) as OrderSlaRow[];
+  const out: OrderSlaRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db
+      .from("shopify_orders")
+      .select("day_local, first_fulfilled_at, bucket")
+      .gte("day_local", start)
+      .lte("day_local", end)
+      .order("id")
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`shopify_orders (sla): ${error.message}`);
+    const rows = (data ?? []) as OrderSlaRow[];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return out;
 }
 
 async function fetchOtherChannels(
@@ -294,15 +322,22 @@ async function fetchOtherChannels(
   start: string,
   end: string,
 ): Promise<Array<{ channel: string; orders: number; net: number }>> {
-  const { data } = await db
-    .from("shopify_orders")
-    .select("app_name, source_name, net_sales")
-    .eq("bucket", "dtc_other")
-    .gte("day_local", start)
-    .lte("day_local", end)
-    .limit(5000);
+  const rows: Array<{ app_name: string | null; source_name: string | null; net_sales: number }> = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await db
+      .from("shopify_orders")
+      .select("app_name, source_name, net_sales")
+      .eq("bucket", "dtc_other")
+      .gte("day_local", start)
+      .lte("day_local", end)
+      .order("id")
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`shopify_orders (other channels): ${error.message}`);
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < PAGE) break;
+  }
   const map = new Map<string, { orders: number; net: number }>();
-  for (const r of data ?? []) {
+  for (const r of rows) {
     const key = r.app_name || r.source_name || "unknown";
     const cur = map.get(key) ?? { orders: 0, net: 0 };
     cur.orders += 1;

@@ -75,7 +75,7 @@ export async function getProfitability(
 
   const cogsByWeek = new Map<string, { units: number; unitsWithCost: number; cogs: number }>();
   for (const r of cogsRes.data ?? []) {
-    cogsByWeek.set(String(r.week_start), {
+    cogsByWeek.set(String(r.week_start).slice(0, 10), {
       units: n(r.units),
       unitsWithCost: n(r.units_with_cost),
       cogs: n(r.cogs),

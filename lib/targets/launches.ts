@@ -63,7 +63,7 @@ export async function getLaunches(
       });
       if (res.error) throw new Error(`targets_sku_daily: ${res.error.message}`);
       rows = (res.data ?? []).map((r) => ({
-        day_local: String(r.day_local),
+        day_local: String(r.day_local).slice(0, 10),
         sku: String(r.sku),
         units: n(r.units),
         revenue: n(r.revenue),
