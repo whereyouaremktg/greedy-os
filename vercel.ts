@@ -22,7 +22,11 @@ const config: VercelConfig = {
     // ShipHero (Retroship 3PL): on-hand + inbound POs + wholesale orders. Every
     // 6h — polite to the shared ShipHero credit bucket (it's Retroship's account).
     { path: "/api/cron/shiphero", schedule: "0 */6 * * *" },
-    { path: "/api/cron/slack-triggers", schedule: "*/15 * * * *" },
+    // Slack notifications are OFF since 2026-10-20 (moving to another
+    // platform) — see SLACK_NOTIFICATIONS_ENABLED in lib/slack/dispatch.ts.
+    // slack-triggers and health only ever produce Slack posts, so they're
+    // unscheduled too; re-enable by uncommenting them and flipping the switch.
+    // { path: "/api/cron/slack-triggers", schedule: "*/15 * * * *" },
     // Daily morning briefing (13:00 UTC = 9am ET) — DISABLED 2026-08-26 at
     // Paul's request: it posted every day whether or not anything had changed,
     // so it read as stale. The route (/api/cron/slack-digest) and the digest
@@ -31,10 +35,11 @@ const config: VercelConfig = {
     // { path: "/api/cron/slack-digest", schedule: "0 13 * * *" },
     // Connector watchdog — hourly freshness + OAuth-token check; Slacks
     // #greedy-os (deduped per day) on staleness / disconnect / token expiry.
-    { path: "/api/cron/health", schedule: "0 * * * *" },
+    // { path: "/api/cron/health", schedule: "0 * * * *" },
     // Daily PO/manufacturing radar — re-runs the email extraction agent over
-    // every open run + wholesale PO and posts 🔴🟡🟢 status to Slack. Now the
-    // only scheduled daily Slack post (the 13:00 briefing is off).
+    // every open run + wholesale PO, applies safe record updates, and posts
+    // 🔴🟡🟢 status to Slack. Still scheduled for the record updates; the
+    // Slack post is suppressed while notifications are off.
     { path: "/api/cron/po-monitor", schedule: "0 14 * * *" },
   ],
 };
