@@ -11,13 +11,25 @@ type SendSlackInput = {
   dedupeKey: string;
 };
 
+// Kill switch for every outbound Slack notification (cron triggers, PO radar,
+// health + cron-failure alerts, inbound-email pings) — all of them post through
+// sendSlack. OFF since 2026-10-20 while notifications move to another
+// platform. Nothing is posted or recorded in slack_notifications while off.
+// To re-enable: set this to true and restore the slack-triggers + health crons
+// in vercel.ts.
+const SLACK_NOTIFICATIONS_ENABLED = false;
+
 type SendSlackResult =
-  | { skipped: true; reason: "dedupe" }
+  | { skipped: true; reason: "dedupe" | "disabled" }
   | { sent: true; ts: string };
 
 export async function sendSlack(
   input: SendSlackInput,
 ): Promise<SendSlackResult> {
+  if (!SLACK_NOTIFICATIONS_ENABLED) {
+    return { skipped: true, reason: "disabled" };
+  }
+
   const supabase = createServiceClient();
 
   const { data: existing } = await supabase
