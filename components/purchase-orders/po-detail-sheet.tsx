@@ -46,6 +46,7 @@ import {
   PO_STATUS_LABELS,
   type PoStatus,
 } from "@/lib/purchase-orders/statuses";
+import { useOnPropChange } from "@/lib/use-on-prop-change";
 
 const PO_STATUS_OPTIONS: PoStatus[] = [
   "draft",
@@ -127,11 +128,11 @@ function ShipmentForm({
   const [tracking, setTracking] = React.useState(detail.tracking_number ?? "");
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    setShipDate(detail.ship_date ?? "");
-    setCarrier(detail.carrier ?? "");
-    setTracking(detail.tracking_number ?? "");
-  }, [detail]);
+  useOnPropChange(detail, (d) => {
+    setShipDate(d.ship_date ?? "");
+    setCarrier(d.carrier ?? "");
+    setTracking(d.tracking_number ?? "");
+  });
 
   function handleSave() {
     startTransition(async () => {
@@ -210,12 +211,12 @@ function DetailsForm({
   const [cancelDate, setCancelDate] = React.useState(detail.expected_date ?? "");
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    setPoNumber(detail.po_number ?? "");
-    setStatus(detail.status as PoStatus);
-    setOrderDate(detail.order_date ?? "");
-    setCancelDate(detail.expected_date ?? "");
-  }, [detail]);
+  useOnPropChange(detail, (d) => {
+    setPoNumber(d.po_number ?? "");
+    setStatus(d.status as PoStatus);
+    setOrderDate(d.order_date ?? "");
+    setCancelDate(d.expected_date ?? "");
+  });
 
   function handleSave() {
     startTransition(async () => {
@@ -302,11 +303,11 @@ function LabelsForm({
   const [note, setNote] = React.useState(detail.labels_note ?? "");
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    setOrdered(detail.labels_ordered);
-    setCost(detail.labels_cost != null ? String(detail.labels_cost) : "");
-    setNote(detail.labels_note ?? "");
-  }, [detail]);
+  useOnPropChange(detail, (d) => {
+    setOrdered(d.labels_ordered);
+    setCost(d.labels_cost != null ? String(d.labels_cost) : "");
+    setNote(d.labels_note ?? "");
+  });
 
   function handleSave() {
     const trimmedCost = cost.trim();
@@ -379,6 +380,10 @@ function LabelsForm({
   );
 }
 
+function costsFromDetail(d: PoDetail): Record<string, string> {
+  return Object.fromEntries(d.line_items.map((li) => [li.id, String(li.unit_cost)]));
+}
+
 function CostsForm({
   detail,
   onSaved,
@@ -386,16 +391,15 @@ function CostsForm({
   detail: PoDetail;
   onSaved?: () => void;
 }) {
-  const [costs, setCosts] = React.useState<Record<string, string>>({});
+  // Seed from the PO on mount AND when a different PO is shown: the prop-change
+  // hook only fires on a change, so an empty initial state would render blank
+  // inputs and "Save pricing" would write zeros over the stored costs.
+  const [costs, setCosts] = React.useState<Record<string, string>>(() =>
+    costsFromDetail(detail),
+  );
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    setCosts(
-      Object.fromEntries(
-        detail.line_items.map((li) => [li.id, String(li.unit_cost)]),
-      ),
-    );
-  }, [detail]);
+  useOnPropChange(detail, (d) => setCosts(costsFromDetail(d)));
 
   const previewTotal = detail.line_items.reduce((sum, li) => {
     const raw = costs[li.id];

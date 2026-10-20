@@ -32,6 +32,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useOnPropChange } from "@/lib/use-on-prop-change";
 
 export function CampaignsView({
   campaigns: initialCampaigns,
@@ -122,11 +123,12 @@ export function CampaignsView({
     });
   }
 
-  React.useEffect(() => {
-    if (!selected) return;
-    const fresh = initialCampaigns.find((c) => c.id === selected.id);
-    if (fresh) setSelected(fresh);
-  }, [initialCampaigns, selected]);
+  useOnPropChange(initialCampaigns, (next) => {
+    setSelected((prev) => {
+      if (!prev) return prev;
+      return next.find((c) => c.id === prev.id) ?? prev;
+    });
+  });
 
   return (
     <>

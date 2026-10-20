@@ -24,7 +24,7 @@ export default async function LoginPage({
     <div className="min-h-screen flex items-center justify-center bg-muted/40 px-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Sign in to Glow OS</CardTitle>
+          <CardTitle className="text-xl">Sign in to Greedy OS</CardTitle>
         </CardHeader>
         <CardContent>
           <form action={login} className="space-y-4">

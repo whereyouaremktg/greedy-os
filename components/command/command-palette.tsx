@@ -26,6 +26,7 @@ import {
   Settings,
   CalendarRange,
   Sparkles,
+  Target,
 } from "lucide-react";
 import { useAnalystDrawerOptional } from "@/components/chat/analyst-drawer";
 import {
@@ -48,6 +49,7 @@ import {
 
 const PAGES = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/targets", label: "Q4 Targets", icon: Target },
   { href: "/purchase-orders", label: "Purchase Orders", icon: FileText },
   { href: "/manufacturing", label: "Manufacturing", icon: Factory },
   { href: "/timeline", label: "Timeline", icon: CalendarRange },

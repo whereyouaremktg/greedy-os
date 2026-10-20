@@ -38,7 +38,7 @@ export default async function AppLayout({
       <AnalystDrawerProvider>
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar email={user.email ?? ""} syncStatus={syncStatus} />
-          <main className="flex-1 overflow-x-auto p-5">
+          <main className="flex-1 overflow-x-auto p-3 md:p-5">
             <ViewTransitionWrapper>{children}</ViewTransitionWrapper>
           </main>
         </div>

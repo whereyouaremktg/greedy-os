@@ -554,6 +554,7 @@ export type Database = {
           shopify_product_id: string | null
           sku: string | null
           unit: string
+          unit_cost_usd: number | null
           updated_at: string
         }
         Insert: {
@@ -569,6 +570,7 @@ export type Database = {
           shopify_product_id?: string | null
           sku?: string | null
           unit?: string
+          unit_cost_usd?: number | null
           updated_at?: string
         }
         Update: {
@@ -584,6 +586,7 @@ export type Database = {
           shopify_product_id?: string | null
           sku?: string | null
           unit?: string
+          unit_cost_usd?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -596,11 +599,15 @@ export type Database = {
           currency: string
           expected_date: string | null
           id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          invoiced_amount: number | null
           labels_cost: number | null
           labels_note: string | null
           labels_ordered: boolean
           notes: string | null
           order_date: string | null
+          paid_date: string | null
           po_number: string | null
           ship_date: string | null
           status: Database["public"]["Enums"]["po_status"]
@@ -617,11 +624,15 @@ export type Database = {
           currency?: string
           expected_date?: string | null
           id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          invoiced_amount?: number | null
           labels_cost?: number | null
           labels_note?: string | null
           labels_ordered?: boolean
           notes?: string | null
           order_date?: string | null
+          paid_date?: string | null
           po_number?: string | null
           ship_date?: string | null
           status?: Database["public"]["Enums"]["po_status"]
@@ -638,11 +649,15 @@ export type Database = {
           currency?: string
           expected_date?: string | null
           id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          invoiced_amount?: number | null
           labels_cost?: number | null
           labels_note?: string | null
           labels_ordered?: boolean
           notes?: string | null
           order_date?: string | null
+          paid_date?: string | null
           po_number?: string | null
           ship_date?: string | null
           status?: Database["public"]["Enums"]["po_status"]
@@ -902,6 +917,359 @@ export type Database = {
         }
         Relationships: []
       }
+      shiphero_shipments: {
+        Row: {
+          box_name: string | null
+          carrier: string | null
+          country: string | null
+          created_at: string
+          day_local: string
+          id: string
+          label_count: number
+          labels: Json
+          order_id: string | null
+          order_number: string | null
+          postage: number
+          shipping_method: string | null
+          shop_name: string | null
+          synced_at: string
+          warehouse_id: string | null
+          weight_lb: number | null
+        }
+        Insert: {
+          box_name?: string | null
+          carrier?: string | null
+          country?: string | null
+          created_at: string
+          day_local: string
+          id: string
+          label_count?: number
+          labels?: Json
+          order_id?: string | null
+          order_number?: string | null
+          postage?: number
+          shipping_method?: string | null
+          shop_name?: string | null
+          synced_at?: string
+          warehouse_id?: string | null
+          weight_lb?: number | null
+        }
+        Update: {
+          box_name?: string | null
+          carrier?: string | null
+          country?: string | null
+          created_at?: string
+          day_local?: string
+          id?: string
+          label_count?: number
+          labels?: Json
+          order_id?: string | null
+          order_number?: string | null
+          postage?: number
+          shipping_method?: string | null
+          shop_name?: string | null
+          synced_at?: string
+          warehouse_id?: string | null
+          weight_lb?: number | null
+        }
+        Relationships: []
+      }
+      shopify_orders: {
+        Row: {
+          app_name: string | null
+          bucket: string
+          bucket_reason: string | null
+          cancelled_at: string | null
+          channel_name: string | null
+          created_at: string
+          customer_order_count: number | null
+          day_local: string
+          discounts: number
+          financial_status: string | null
+          first_fulfilled_at: string | null
+          fulfillment_status: string | null
+          gross_sales: number
+          id: string
+          name: string
+          net_sales: number
+          processed_at: string
+          returns: number
+          shipping: number
+          source_name: string | null
+          synced_at: string
+          tags: string[]
+          tax: number
+          total: number
+          units: number
+          updated_at: string
+        }
+        Insert: {
+          app_name?: string | null
+          bucket: string
+          bucket_reason?: string | null
+          cancelled_at?: string | null
+          channel_name?: string | null
+          created_at: string
+          customer_order_count?: number | null
+          day_local: string
+          discounts?: number
+          financial_status?: string | null
+          first_fulfilled_at?: string | null
+          fulfillment_status?: string | null
+          gross_sales?: number
+          id: string
+          name: string
+          net_sales?: number
+          processed_at: string
+          returns?: number
+          shipping?: number
+          source_name?: string | null
+          synced_at?: string
+          tags?: string[]
+          tax?: number
+          total?: number
+          units?: number
+          updated_at: string
+        }
+        Update: {
+          app_name?: string | null
+          bucket?: string
+          bucket_reason?: string | null
+          cancelled_at?: string | null
+          channel_name?: string | null
+          created_at?: string
+          customer_order_count?: number | null
+          day_local?: string
+          discounts?: number
+          financial_status?: string | null
+          first_fulfilled_at?: string | null
+          fulfillment_status?: string | null
+          gross_sales?: number
+          id?: string
+          name?: string
+          net_sales?: number
+          processed_at?: string
+          returns?: number
+          shipping?: number
+          source_name?: string | null
+          synced_at?: string
+          tags?: string[]
+          tax?: number
+          total?: number
+          units?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shopify_order_lines: {
+        Row: {
+          current_quantity: number
+          discounted: number
+          gross: number
+          is_product: boolean
+          line_index: number
+          order_id: string
+          product_id: string | null
+          quantity: number
+          sku: string | null
+          title: string | null
+          variant_id: string | null
+          variant_title: string | null
+        }
+        Insert: {
+          current_quantity?: number
+          discounted?: number
+          gross?: number
+          is_product?: boolean
+          line_index: number
+          order_id: string
+          product_id?: string | null
+          quantity?: number
+          sku?: string | null
+          title?: string | null
+          variant_id?: string | null
+          variant_title?: string | null
+        }
+        Update: {
+          current_quantity?: number
+          discounted?: number
+          gross?: number
+          is_product?: boolean
+          line_index?: number
+          order_id?: string
+          product_id?: string | null
+          quantity?: number
+          sku?: string | null
+          title?: string | null
+          variant_id?: string | null
+          variant_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopify_order_lines_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "shopify_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      targets_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      targets_sync_runs: {
+        Row: {
+          complete: boolean
+          finished_at: string | null
+          id: number
+          job: string
+          message: string | null
+          ok: boolean | null
+          orders_upserted: number
+          pages: number
+          started_at: string
+          trigger: string
+        }
+        Insert: {
+          complete?: boolean
+          finished_at?: string | null
+          id?: number
+          job: string
+          message?: string | null
+          ok?: boolean | null
+          orders_upserted?: number
+          pages?: number
+          started_at?: string
+          trigger?: string
+        }
+        Update: {
+          complete?: boolean
+          finished_at?: string | null
+          id?: number
+          job?: string
+          message?: string | null
+          ok?: boolean | null
+          orders_upserted?: number
+          pages?: number
+          started_at?: string
+          trigger?: string
+        }
+        Relationships: []
+      }
+      targets_sync_state: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      targets_weekly_inputs: {
+        Row: {
+          ad_spend_google: number | null
+          ad_spend_meta: number | null
+          ad_spend_other: number | null
+          ad_spend_tiktok: number | null
+          cogs_override: number | null
+          notes: string | null
+          other_opex: number | null
+          threepl_cost: number | null
+          updated_at: string
+          updated_by: string | null
+          week_start: string
+        }
+        Insert: {
+          ad_spend_google?: number | null
+          ad_spend_meta?: number | null
+          ad_spend_other?: number | null
+          ad_spend_tiktok?: number | null
+          cogs_override?: number | null
+          notes?: string | null
+          other_opex?: number | null
+          threepl_cost?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          week_start: string
+        }
+        Update: {
+          ad_spend_google?: number | null
+          ad_spend_meta?: number | null
+          ad_spend_other?: number | null
+          ad_spend_tiktok?: number | null
+          cogs_override?: number | null
+          notes?: string | null
+          other_opex?: number | null
+          threepl_cost?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          week_start?: string
+        }
+        Relationships: []
+      }
+      launch_drops: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          drop_date: string
+          id: string
+          name: string
+          notes: string | null
+          planned_units: number | null
+          skus: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          drop_date: string
+          id?: string
+          name: string
+          notes?: string | null
+          planned_units?: number | null
+          skus?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          drop_date?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          planned_units?: number | null
+          skus?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           contact_name: string | null
@@ -940,10 +1308,66 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      shopify_daily_sales: {
+        Row: {
+          bucket: string | null
+          day_local: string | null
+          discounts: number | null
+          fulfilled_orders: number | null
+          gross_sales: number | null
+          net_sales: number | null
+          new_customers: number | null
+          orders: number | null
+          returns: number | null
+          shipping: number | null
+          units: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      targets_weekly_cogs: {
+        Args: { p_start: string; p_end: string; p_buckets: string[] }
+        Returns: {
+          week_start: string
+          units: number
+          units_with_cost: number
+          cogs: number
+        }[]
+      }
+      targets_sku_daily: {
+        Args: { p_start: string; p_end: string; p_skus: string[]; p_buckets: string[] }
+        Returns: {
+          day_local: string
+          sku: string
+          units: number
+          revenue: number
+        }[]
+      }
+      targets_fulfillment_weekly: {
+        Args: { p_start: string; p_end: string; p_buckets: string[] }
+        Returns: {
+          week_start: string
+          orders: number
+          units: number
+          shipping_charged: number
+          shipped_orders: number
+          shipments: number
+          postage: number
+          avg_hours_to_ship: number | null
+          p50_hours_to_ship: number | null
+        }[]
+      }
+      targets_fulfillment_carriers: {
+        Args: { p_start: string; p_end: string; p_buckets: string[] }
+        Returns: {
+          carrier: string | null
+          shipping_method: string | null
+          shipments: number
+          postage: number
+          avg_weight_lb: number | null
+        }[]
+      }
     }
     Enums: {
       campaign_link_source:
