@@ -917,6 +917,63 @@ export type Database = {
         }
         Relationships: []
       }
+      shiphero_shipments: {
+        Row: {
+          box_name: string | null
+          carrier: string | null
+          country: string | null
+          created_at: string
+          day_local: string
+          id: string
+          label_count: number
+          labels: Json
+          order_id: string | null
+          order_number: string | null
+          postage: number
+          shipping_method: string | null
+          shop_name: string | null
+          synced_at: string
+          warehouse_id: string | null
+          weight_lb: number | null
+        }
+        Insert: {
+          box_name?: string | null
+          carrier?: string | null
+          country?: string | null
+          created_at: string
+          day_local: string
+          id: string
+          label_count?: number
+          labels?: Json
+          order_id?: string | null
+          order_number?: string | null
+          postage?: number
+          shipping_method?: string | null
+          shop_name?: string | null
+          synced_at?: string
+          warehouse_id?: string | null
+          weight_lb?: number | null
+        }
+        Update: {
+          box_name?: string | null
+          carrier?: string | null
+          country?: string | null
+          created_at?: string
+          day_local?: string
+          id?: string
+          label_count?: number
+          labels?: Json
+          order_id?: string | null
+          order_number?: string | null
+          postage?: number
+          shipping_method?: string | null
+          shop_name?: string | null
+          synced_at?: string
+          warehouse_id?: string | null
+          weight_lb?: number | null
+        }
+        Relationships: []
+      }
       shopify_orders: {
         Row: {
           app_name: string | null
@@ -1285,6 +1342,30 @@ export type Database = {
           sku: string
           units: number
           revenue: number
+        }[]
+      }
+      targets_fulfillment_weekly: {
+        Args: { p_start: string; p_end: string; p_buckets: string[] }
+        Returns: {
+          week_start: string
+          orders: number
+          units: number
+          shipping_charged: number
+          shipped_orders: number
+          shipments: number
+          postage: number
+          avg_hours_to_ship: number | null
+          p50_hours_to_ship: number | null
+        }[]
+      }
+      targets_fulfillment_carriers: {
+        Args: { p_start: string; p_end: string; p_buckets: string[] }
+        Returns: {
+          carrier: string | null
+          shipping_method: string | null
+          shipments: number
+          postage: number
+          avg_weight_lb: number | null
         }[]
       }
     }

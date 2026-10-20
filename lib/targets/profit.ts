@@ -45,6 +45,8 @@ export type WeekProfit = {
   cogsCoverage: number;
   adSpend: number | null;
   threepl: number | null;
+  /** Where the 3PL figure came from: the weekly RetroShip invoice input, or the fulfillment estimate (ShipHero postage + rate card). */
+  threeplSource: "input" | "fulfillment" | null;
   otherOpex: number | null;
   grossMargin: number | null;
   contributionMargin: number | null;
@@ -78,11 +80,17 @@ function ratio(num: number | null, den: number): number | null {
   return num / den;
 }
 
+export type WeekFallbacks = {
+  /** Fulfillment estimate for the week (postage + pick/pack + packaging), used when no 3PL invoice is entered. */
+  threepl: number | null;
+};
+
 export function computeWeek(
   facts: WeekFacts,
   inputs: WeekInputs | null,
   thresholds: ProfitThresholds,
   today: string,
+  fallbacks: WeekFallbacks = { threepl: null },
 ): WeekProfit {
   const weekEnd = addDays(facts.weekStart, 6);
   const isCurrent = today >= facts.weekStart && today <= weekEnd;
@@ -99,7 +107,9 @@ export function computeWeek(
   const adSpend = inputs
     ? sum(inputs.adSpendMeta, inputs.adSpendTiktok, inputs.adSpendGoogle, inputs.adSpendOther)
     : null;
-  const threepl = inputs?.threeplCost ?? null;
+  const threeplSource: WeekProfit["threeplSource"] =
+    inputs?.threeplCost != null ? "input" : fallbacks.threepl != null ? "fulfillment" : null;
+  const threepl = threeplSource === "input" ? inputs!.threeplCost : threeplSource === "fulfillment" ? fallbacks.threepl : null;
   const otherOpex = inputs?.otherOpex ?? null;
 
   const net = facts.netSales;
@@ -132,6 +142,7 @@ export function computeWeek(
     cogsCoverage,
     adSpend,
     threepl,
+    threeplSource,
     otherOpex,
     grossMargin,
     contributionMargin,

@@ -27,6 +27,7 @@ import {
 } from "@/lib/targets/settings";
 import { getWholesaleSummary, type WholesaleSummary } from "@/lib/targets/wholesale";
 import { getProfitability, type ProfitabilityData } from "@/lib/targets/profitability";
+import { getFulfillment, type FulfillmentData } from "@/lib/targets/fulfillment-data";
 import { getLaunches, type LaunchesData } from "@/lib/targets/launches";
 
 type DB = SupabaseClient<Database>;
@@ -132,6 +133,7 @@ export type TargetsData = {
   daily: DailyPoint[];
   wholesale: WholesaleSummary;
   profit: ProfitabilityData;
+  fulfillment: FulfillmentData;
   launches: LaunchesData;
   bfcm: {
     days: BfcmDay[];
@@ -509,20 +511,30 @@ export async function getTargetsData(db: DB): Promise<TargetsData> {
   const revenueBuckets = [...REVENUE_BUCKETS].filter(
     (b) => b !== "b2b" || settings.count_b2b_in_total,
   );
-  const [wholesale, profit, launches] = await Promise.all([
+  // Fulfillment first: its weekly estimate is the profitability panel's 3PL
+  // fallback when no RetroShip invoice has been entered for a week.
+  const [wholesale, fulfillment, launches] = await Promise.all([
     getWholesaleSummary(db, { start, end }),
-    getProfitability(db, {
+    getFulfillment(db, {
       daily: current,
       window: { start, end },
       today,
       revenueBuckets,
-      thresholds: {
-        discountRateMaxPct: settings.flags.discount_rate_max_pct,
-        netMarginMinPct: settings.guardrails.net_margin_min_pct,
-      },
+      rates: settings.fulfillment,
     }),
     getLaunches(db, { today, windowEnd: end, revenueBuckets }),
   ]);
+  const profit = await getProfitability(db, {
+    daily: current,
+    window: { start, end },
+    today,
+    revenueBuckets,
+    thresholds: {
+      discountRateMaxPct: settings.flags.discount_rate_max_pct,
+      netMarginMinPct: settings.guardrails.net_margin_min_pct,
+    },
+    threeplFallbackByWeek: fulfillment.threeplFallbackByWeek,
+  });
   const wholesaleInvoiced = wholesale.invoicedQ4;
   const wholesaleBooked = wholesale.bookedNotInvoiced;
 
@@ -673,6 +685,7 @@ export async function getTargetsData(db: DB): Promise<TargetsData> {
     daily,
     wholesale,
     profit,
+    fulfillment,
     launches,
     bfcm: { days: bfcmDays, bfcm: bfcmTotals, busiestDay: busiest, busiestDayLy: busiestLy, earlyAccess, sla },
   };

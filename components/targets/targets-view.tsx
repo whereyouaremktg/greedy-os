@@ -21,6 +21,7 @@ import {
 } from "@/components/targets/revenue-sections";
 import { WholesaleTracker } from "@/components/targets/wholesale-tracker";
 import { ProfitabilityPanel } from "@/components/targets/profitability-panel";
+import { FulfillmentSection } from "@/components/targets/fulfillment-section";
 import { LaunchTracker } from "@/components/targets/launch-tracker";
 import { TargetsSettingsSheet } from "@/components/targets/targets-settings-sheet";
 import { dateTimeLabel } from "@/components/targets/format";
@@ -86,6 +87,7 @@ export function TargetsView({ data }: { data: TargetsData }) {
           <WholesaleTracker summary={data.wholesale} />
           <MarketingLine data={data} />
           <BfcmModule data={data} />
+          <FulfillmentSection fulfillment={data.fulfillment} settings={data.settings} />
           <ProfitabilityPanel profit={data.profit} settings={data.settings} />
           <LaunchTracker launches={data.launches} />
 

@@ -130,7 +130,7 @@ export function BfcmModule({ data }: { data: TargetsData }) {
             <BfcmTable data={data} metric={metric} />
           ) : (
             <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 800, height: 260 }}>
                 <ComposedChart data={rows} margin={{ top: 16, right: 12, left: 0, bottom: 4 }}>
                   <CartesianGrid vertical={false} stroke={grid} />
                   <XAxis
@@ -387,10 +387,18 @@ function StaffingMeter({
         ) : null}
         {ticks.map(([label, n]) => (
           <div key={label} className="absolute -top-1 h-4 w-px bg-foreground/50" style={{ left: pos(n) }}>
-            <span className="absolute top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-[9px] text-muted-foreground num">
+            <span className="absolute top-full mt-0.5 hidden -translate-x-1/2 whitespace-nowrap text-[9px] text-muted-foreground num sm:block">
               {label} {format(n)}
             </span>
           </div>
+        ))}
+      </div>
+      {/* Narrow screens: the positioned labels collide, so list them instead. */}
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground num sm:hidden">
+        {ticks.map(([label, n]) => (
+          <span key={label}>
+            {label} {format(n)}
+          </span>
         ))}
       </div>
     </div>

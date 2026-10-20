@@ -25,7 +25,7 @@ Checks: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
 | Pipe | Mechanism | Cadence |
 |---|---|---|
 | Shopify sales + inventory | `/api/cron/shopify` | every 2h |
-| Shopify orders for Q4 Targets | `/api/cron/targets-sync` (+ manual Refresh) | every 6h |
+| Shopify orders + ShipHero shipments for Q4 Targets | `/api/cron/targets-sync` (+ manual Refresh) | every 6h |
 | Shopify SKU sales history | `/api/cron/shopify-sales-history` | weekly |
 | ShipHero / RetroShip | `/api/cron/shiphero` | every 6h |
 | HubSpot deals | `/api/cron/hubspot` | every 6h |

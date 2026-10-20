@@ -90,3 +90,24 @@ describe("rollupQuarter", () => {
     expect(q.mer).toBeCloseTo(5);
   });
 });
+
+describe("computeWeek 3PL fallback", () => {
+  it("uses the fulfillment estimate when no invoice is entered, and says so", () => {
+    const noInvoice: WeekInputs = { ...inputs, threeplCost: null };
+    const w = computeWeek(facts, noInvoice, thresholds, "2026-10-20", { threepl: 950 });
+    expect(w.threepl).toBe(950);
+    expect(w.threeplSource).toBe("fulfillment");
+    expect(w.contributionMargin).toBeCloseTo((10_000 - 3_000 - 2_000 - 950) / 10_000);
+  });
+  it("prefers the entered invoice over the estimate", () => {
+    const w = computeWeek(facts, inputs, thresholds, "2026-10-20", { threepl: 950 });
+    expect(w.threepl).toBe(800);
+    expect(w.threeplSource).toBe("input");
+  });
+  it("stays blank with neither", () => {
+    const w = computeWeek(facts, { ...inputs, threeplCost: null }, thresholds, "2026-10-20");
+    expect(w.threepl).toBeNull();
+    expect(w.threeplSource).toBeNull();
+    expect(w.contributionMargin).toBeNull();
+  });
+});

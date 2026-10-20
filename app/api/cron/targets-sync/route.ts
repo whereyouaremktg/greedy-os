@@ -1,5 +1,5 @@
 import { runCronJob, verifyCronSecret } from "@/lib/cron-auth";
-import { runShopifyOrdersSync } from "@/lib/pullers/shopify-orders";
+import { runTargetsSync } from "@/lib/pullers/targets-sync";
 
 export const runtime = "nodejs";
 // Incremental after the first pass; the budget below leaves headroom for the
@@ -10,7 +10,5 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const denied = verifyCronSecret(request);
   if (denied) return denied;
-  return runCronJob("targets-sync", () =>
-    runShopifyOrdersSync({ budgetMs: 240_000, trigger: "cron" }),
-  );
+  return runCronJob("targets-sync", () => runTargetsSync({ budgetMs: 240_000, trigger: "cron" }));
 }

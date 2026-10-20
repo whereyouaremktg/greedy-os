@@ -81,6 +81,9 @@ Notes:
   edited from the panel ("Unit costs").
 - Manual weekly inputs (`targets_weekly_inputs`): Meta / TikTok / Google / other ad spend,
   3PL (RetroShip) cost, other opex, notes. No ad platform or QuickBooks feed exists for these.
+- **3PL fallback.** When a week has no RetroShip invoice entered, its 3PL cost is the
+  fulfillment estimate from the section above (ShipHero postage + rate card, or postage alone
+  when no rate card is set). The row says "3PL est." so nobody mistakes it for an invoice.
 - Gross margin = (net − COGS) / net. Contribution margin also subtracts ad spend and 3PL.
   Net margin also subtracts other opex. MER = net sales / ad spend. A margin is blank
   ("needs inputs") until the inputs it depends on exist; it is never guessed.
@@ -88,6 +91,28 @@ Notes:
   (25%). The quarter roll-up uses only weeks with complete inputs and says "N of M weeks".
 - The **net margin guardrail** reads the manual override first, then the computed quarter
   margin, then nothing (QuickBooks has no Q4 P&L).
+
+## Fulfillment (fulfillment as a cost of goods)
+
+- **Postage is actual.** `/api/cron/targets-sync` also mirrors ShipHero shipments
+  (`shiphero_shipments`: label cost, carrier, service, weight, box) for the same Q4 windows and
+  matches them to Shopify orders by order name (`#73074`); ShipHero "Manual Order" shipments
+  (wholesale, gifting) are excluded. Only valid (non-voided) labels count; a shipment with no
+  label cost (generic or hand label) counts as unmatched rather than as free postage.
+- Weekly facts come from RPC `targets_fulfillment_weekly`: paid-bucket orders, units, shipping
+  charged to customers, orders with a matched shipment, postage on them, and time to ship
+  (Shopify first fulfillment − order created; average and median).
+- **Match rate** = matched orders ÷ orders. Postage is extrapolated to unmatched orders at the
+  matched per-order rate; below a 50% match the week shows "postage sample too thin" and no
+  estimate (recent orders that have not shipped yet are the usual reason).
+- **Rate card** (settings → `fulfillment`): RetroShip pick/pack per order (first unit included),
+  per additional unit, packaging per order. Fulfillment cost = postage + pick/pack + packaging.
+  Until the rate card is set the section is explicitly "postage only".
+- Shown: fulfillment (or postage) per order, fulfillment % of net sales, shipping recovered
+  (charged ÷ postage, plus the subsidy or surplus), median time to ship, weekly cost-per-order
+  chart/table, carrier mix (RPC `targets_fulfillment_carriers`).
+- Sync state key `shiphero_shipments:<window>` stores the last synced local day; each run
+  re-pulls the last 3 days to catch late labels. ShipHero credits: ~1 per shipment.
 
 ## Launch tracker (stage 4)
 
@@ -99,8 +124,10 @@ Notes:
 
 ## Operations
 
-- Backfill or repair from a shell: `pnpm exec tsx scripts/targets-sync.ts --window q4_2025`.
-  Needs the Shopify client credentials and the Supabase service key in the environment.
+- Backfill or repair from a shell: `pnpm exec tsx scripts/targets-sync.ts --window q4_2025`
+  (Shopify orders) or `--job shipments` (ShipHero). Needs the Shopify client credentials and
+  the Supabase service key in the environment; the ShipHero token comes from
+  `connector_credentials`.
 - Sync state lives in `targets_sync_state` (watermark per window) and every run writes a
   `targets_sync_runs` row; the page shows the newest `synced_at` as "data as of".
 - Resetting a window: delete its `targets_sync_state` row; the next run re-pulls the quarter.

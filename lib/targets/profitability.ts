@@ -50,6 +50,8 @@ export async function getProfitability(
     today: string;
     revenueBuckets: Bucket[];
     thresholds: ProfitThresholds;
+    /** Weekly fulfillment estimate (postage + rate card) keyed by week start; the 3PL fallback. */
+    threeplFallbackByWeek?: Map<string, number | null>;
   },
 ): Promise<ProfitabilityData> {
   const { daily, window, today, thresholds } = opts;
@@ -124,7 +126,11 @@ export async function getProfitability(
     f.orders += n(r.orders);
   }
 
-  const weeks = [...factsByWeek.values()].map((f) => computeWeek(f, inputs[f.weekStart] ?? null, thresholds, today));
+  const weeks = [...factsByWeek.values()].map((f) =>
+    computeWeek(f, inputs[f.weekStart] ?? null, thresholds, today, {
+      threepl: opts.threeplFallbackByWeek?.get(f.weekStart) ?? null,
+    }),
+  );
   const quarter = rollupQuarter(weeks);
 
   const products = skuRes.data ?? [];

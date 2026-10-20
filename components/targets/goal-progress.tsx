@@ -126,7 +126,7 @@ export function GoalProgress({ pace, tiers, totalLastYearToDate, baselineTotal, 
         </div>
 
         <p className="text-[11px] text-muted-foreground">
-          Last year&apos;s Q4 total: {usd(baselineTotal)} (Shopify actual plus the manual non-Shopify
+          Last year&apos;s Q4 total: {usd(baselineTotal)}{" "}(Shopify actual plus the manual non-Shopify
           figure). Pace uses last year&apos;s daily revenue curve with the same paid-only rules; through{" "}
           {today}.
         </p>
@@ -187,7 +187,7 @@ function TierTick({ tier, pos }: { tier: TierProgress; pos: number }) {
       style={{ left: `${pos * 100}%` }}
       aria-hidden
     >
-      <span className="absolute top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] text-muted-foreground num">
+      <span className="absolute top-full mt-1 left-1/2 hidden -translate-x-1/2 whitespace-nowrap text-[10px] text-muted-foreground num sm:block">
         {tier.label} {usdCompact(tier.amount)}
       </span>
     </div>

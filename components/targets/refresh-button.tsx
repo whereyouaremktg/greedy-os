@@ -18,11 +18,19 @@ export function RefreshButton({ disabled }: { disabled?: boolean }) {
         start(async () => {
           const res = await refreshTargets();
           if (res.ok) {
-            toast.success(
-              res.data?.complete
-                ? `Synced ${res.data.ordersUpserted} orders`
-                : `Synced ${res.data?.ordersUpserted ?? 0} orders so far; more on the next run`,
-            );
+            const d = res.data;
+            const parts = [`${d?.ordersUpserted ?? 0} orders`, `${d?.shipmentsUpserted ?? 0} shipments`];
+            if (d?.partialFailure) {
+              toast.warning(`Synced ${parts.join(" and ")}, but part of the refresh failed`, {
+                description: d.partialFailure,
+              });
+            } else {
+              toast.success(
+                d?.complete
+                  ? `Synced ${parts.join(" and ")}`
+                  : `Synced ${parts.join(" and ")} so far; more on the next run`,
+              );
+            }
           } else {
             toast.error(res.error);
           }

@@ -48,6 +48,13 @@ export const targetsSettingsSchema = z.object({
     discount_rate_max_pct: z.number(),
   }),
   count_b2b_in_total: z.boolean(),
+  /** RetroShip rate card; postage comes from ShipHero labels, these are the rest. */
+  fulfillment: z.object({
+    pick_pack_per_order: z.number().nonnegative().nullable(),
+    pick_pack_per_extra_unit: z.number().nonnegative().nullable(),
+    packaging_per_order: z.number().nonnegative().nullable(),
+    notes: z.string().default(""),
+  }),
 });
 
 export type TargetsSettings = z.infer<typeof targetsSettingsSchema>;
@@ -80,6 +87,12 @@ export const DEFAULT_TARGETS_SETTINGS: TargetsSettings = {
   },
   flags: { discount_rate_max_pct: 10 },
   count_b2b_in_total: true,
+  fulfillment: {
+    pick_pack_per_order: null,
+    pick_pack_per_extra_unit: null,
+    packaging_per_order: null,
+    notes: "",
+  },
 };
 
 /** Parse a stored jsonb value, falling back to defaults field by field. */

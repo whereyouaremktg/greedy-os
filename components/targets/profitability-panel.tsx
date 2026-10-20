@@ -45,7 +45,7 @@ export function ProfitabilityPanel({ profit, settings }: { profit: Profitability
     <section className="space-y-3">
       <SectionHeading
         title="Profitability"
-        note="Gross margin from SKU unit costs; contribution and net margin need the weekly ad spend, 3PL and opex inputs."
+        note="Gross margin from SKU unit costs; contribution and net margin need the weekly ad spend and opex inputs. 3PL uses the RetroShip invoice when entered, else the fulfillment estimate above."
       />
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <KpiTile
@@ -58,7 +58,7 @@ export function ProfitabilityPanel({ profit, settings }: { profit: Profitability
           title="Contribution margin"
           value={q.contributionMargin != null ? ratioPct(q.contributionMargin) : "—"}
           sub="After ad spend and 3PL"
-          hint={`${q.weeksWithInputs} of ${q.weeksWithSales} weeks have inputs`}
+          hint={`${q.weeksWithInputs} of ${q.weeksWithSales} weeks have inputs${profit.weeks.some((w) => w.threeplSource === "fulfillment") ? " · 3PL estimated from ShipHero where no invoice" : ""}`}
         />
         <KpiTile
           title="Net margin"
@@ -109,11 +109,12 @@ export function ProfitabilityPanel({ profit, settings }: { profit: Profitability
                       {w.label}
                       {w.isCurrent ? <Badge variant="outline" className="text-[10px]">this week</Badge> : null}
                     </div>
-                    {w.flags.length > 0 ? (
+                    {w.flags.length > 0 || w.threeplSource === "fulfillment" ? (
                       <div className="text-[10px] text-muted-foreground">
-                        {w.flags
-                          .map((f) => (f === "discount" ? "discount rate high" : f === "net_margin" ? "net margin low" : "needs inputs"))
-                          .join(" · ")}
+                        {[
+                          ...w.flags.map((f) => (f === "discount" ? "discount rate high" : f === "net_margin" ? "net margin low" : "needs inputs")),
+                          ...(w.threeplSource === "fulfillment" ? ["3PL est."] : []),
+                        ].join(" · ")}
                       </div>
                     ) : null}
                   </TableCell>
