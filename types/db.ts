@@ -554,6 +554,7 @@ export type Database = {
           shopify_product_id: string | null
           sku: string | null
           unit: string
+          unit_cost_usd: number | null
           updated_at: string
         }
         Insert: {
@@ -569,6 +570,7 @@ export type Database = {
           shopify_product_id?: string | null
           sku?: string | null
           unit?: string
+          unit_cost_usd?: number | null
           updated_at?: string
         }
         Update: {
@@ -584,6 +586,7 @@ export type Database = {
           shopify_product_id?: string | null
           sku?: string | null
           unit?: string
+          unit_cost_usd?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -596,11 +599,15 @@ export type Database = {
           currency: string
           expected_date: string | null
           id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          invoiced_amount: number | null
           labels_cost: number | null
           labels_note: string | null
           labels_ordered: boolean
           notes: string | null
           order_date: string | null
+          paid_date: string | null
           po_number: string | null
           ship_date: string | null
           status: Database["public"]["Enums"]["po_status"]
@@ -617,11 +624,15 @@ export type Database = {
           currency?: string
           expected_date?: string | null
           id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          invoiced_amount?: number | null
           labels_cost?: number | null
           labels_note?: string | null
           labels_ordered?: boolean
           notes?: string | null
           order_date?: string | null
+          paid_date?: string | null
           po_number?: string | null
           ship_date?: string | null
           status?: Database["public"]["Enums"]["po_status"]
@@ -638,11 +649,15 @@ export type Database = {
           currency?: string
           expected_date?: string | null
           id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          invoiced_amount?: number | null
           labels_cost?: number | null
           labels_note?: string | null
           labels_ordered?: boolean
           notes?: string | null
           order_date?: string | null
+          paid_date?: string | null
           po_number?: string | null
           ship_date?: string | null
           status?: Database["public"]["Enums"]["po_status"]
@@ -1120,6 +1135,84 @@ export type Database = {
         }
         Relationships: []
       }
+      targets_weekly_inputs: {
+        Row: {
+          ad_spend_google: number | null
+          ad_spend_meta: number | null
+          ad_spend_other: number | null
+          ad_spend_tiktok: number | null
+          cogs_override: number | null
+          notes: string | null
+          other_opex: number | null
+          threepl_cost: number | null
+          updated_at: string
+          updated_by: string | null
+          week_start: string
+        }
+        Insert: {
+          ad_spend_google?: number | null
+          ad_spend_meta?: number | null
+          ad_spend_other?: number | null
+          ad_spend_tiktok?: number | null
+          cogs_override?: number | null
+          notes?: string | null
+          other_opex?: number | null
+          threepl_cost?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          week_start: string
+        }
+        Update: {
+          ad_spend_google?: number | null
+          ad_spend_meta?: number | null
+          ad_spend_other?: number | null
+          ad_spend_tiktok?: number | null
+          cogs_override?: number | null
+          notes?: string | null
+          other_opex?: number | null
+          threepl_cost?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          week_start?: string
+        }
+        Relationships: []
+      }
+      launch_drops: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          drop_date: string
+          id: string
+          name: string
+          notes: string | null
+          planned_units: number | null
+          skus: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          drop_date: string
+          id?: string
+          name: string
+          notes?: string | null
+          planned_units?: number | null
+          skus?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          drop_date?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          planned_units?: number | null
+          skus?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           contact_name: string | null
@@ -1176,7 +1269,24 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      targets_weekly_cogs: {
+        Args: { p_start: string; p_end: string; p_buckets: string[] }
+        Returns: {
+          week_start: string
+          units: number
+          units_with_cost: number
+          cogs: number
+        }[]
+      }
+      targets_sku_daily: {
+        Args: { p_start: string; p_end: string; p_skus: string[]; p_buckets: string[] }
+        Returns: {
+          day_local: string
+          sku: string
+          units: number
+          revenue: number
+        }[]
+      }
     }
     Enums: {
       campaign_link_source:

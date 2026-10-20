@@ -180,32 +180,6 @@ export function B2bSection({ data }: { data: TargetsData }) {
   );
 }
 
-export function WholesaleSection({ data }: { data: TargetsData }) {
-  const r = data.revenue;
-  return (
-    <section className="space-y-3">
-      <SectionHeading
-        title="Wholesale"
-        note="Counts toward Q4 only when invoiced. Booked POs show separately."
-      />
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <KpiTile
-          title="Invoiced in Q4"
-          rawValue={r.wholesaleInvoiced}
-          format="usd"
-          sub="Counted in the Q4 total"
-        />
-        <KpiTile
-          title="Booked, not invoiced"
-          rawValue={r.wholesaleBooked}
-          format="usd"
-          sub="Open POs with no invoice date yet"
-        />
-      </div>
-    </section>
-  );
-}
-
 export function MarketingLine({ data }: { data: TargetsData }) {
   const r = data.revenue;
   return (

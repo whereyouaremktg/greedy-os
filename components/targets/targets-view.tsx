@@ -18,8 +18,10 @@ import {
   DtcSection,
   MarketingLine,
   MarketplacesSection,
-  WholesaleSection,
 } from "@/components/targets/revenue-sections";
+import { WholesaleTracker } from "@/components/targets/wholesale-tracker";
+import { ProfitabilityPanel } from "@/components/targets/profitability-panel";
+import { LaunchTracker } from "@/components/targets/launch-tracker";
 import { TargetsSettingsSheet } from "@/components/targets/targets-settings-sheet";
 import { dateTimeLabel } from "@/components/targets/format";
 
@@ -80,12 +82,12 @@ export function TargetsView({ data }: { data: TargetsData }) {
 
           <DtcSection data={data} />
           <MarketplacesSection data={data} />
-          <div className="grid gap-6 xl:grid-cols-2">
-            <B2bSection data={data} />
-            <WholesaleSection data={data} />
-          </div>
+          <B2bSection data={data} />
+          <WholesaleTracker summary={data.wholesale} />
           <MarketingLine data={data} />
           <BfcmModule data={data} />
+          <ProfitabilityPanel profit={data.profit} settings={data.settings} />
+          <LaunchTracker launches={data.launches} />
 
           <p className="text-[11px] text-muted-foreground">
             Shopify data as of{" "}

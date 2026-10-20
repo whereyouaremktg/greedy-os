@@ -7,6 +7,7 @@ import type { Database } from "@/types/db";
 import {
   BUCKET_LABELS,
   MARKETPLACE_BUCKETS,
+  REVENUE_BUCKETS,
   type Bucket,
   type RevenueBucket,
 } from "@/lib/targets/classify";
@@ -24,6 +25,9 @@ import {
   TARGETS_SETTINGS_KEY,
   type TargetsSettings,
 } from "@/lib/targets/settings";
+import { getWholesaleSummary, type WholesaleSummary } from "@/lib/targets/wholesale";
+import { getProfitability, type ProfitabilityData } from "@/lib/targets/profitability";
+import { getLaunches, type LaunchesData } from "@/lib/targets/launches";
 
 type DB = SupabaseClient<Database>;
 
@@ -56,7 +60,7 @@ export type GuardrailStatus = {
   value: number | null;
   threshold: number;
   unit: "pct" | "usd" | "none";
-  source: "override" | "quickbooks" | "rule" | null;
+  source: "override" | "quickbooks" | "computed" | "rule" | null;
   asOf: string | null;
   detail: string;
 };
@@ -126,6 +130,9 @@ export type TargetsData = {
   tiers: TierProgress[];
   guardrails: GuardrailStatus[];
   daily: DailyPoint[];
+  wholesale: WholesaleSummary;
+  profit: ProfitabilityData;
+  launches: LaunchesData;
   bfcm: {
     days: BfcmDay[];
     bfcm: { orders: number; net: number; ordersLy: number; netLy: number; daysElapsed: number; daysTotal: number };
@@ -335,26 +342,35 @@ async function fetchQb(db: DB): Promise<{ cash: QbRow | null; pnl: QbRow | null 
   return { cash: (cash as QbRow | null) ?? null, pnl: (pnl as QbRow | null) ?? null };
 }
 
-function guardrails(settings: TargetsSettings, qb: { cash: QbRow | null; pnl: QbRow | null }): GuardrailStatus[] {
+function guardrails(
+  settings: TargetsSettings,
+  qb: { cash: QbRow | null; pnl: QbRow | null },
+  computed: { netMargin: number | null; weeksWithInputs: number; weeksWithSales: number },
+): GuardrailStatus[] {
   const g = settings.guardrails;
   const o = settings.overrides;
 
-  const marginValue = o.net_margin_pct;
+  const computedPct = computed.netMargin == null ? null : computed.netMargin * 100;
+  const marginValue = o.net_margin_pct ?? computedPct;
+  const marginSource: GuardrailStatus["source"] =
+    o.net_margin_pct != null ? "override" : computedPct != null ? "computed" : null;
   const margin: GuardrailStatus = {
     key: "net_margin",
     label: "Net margin",
     threshold: g.net_margin_min_pct,
     unit: "pct",
     value: marginValue,
-    source: marginValue != null ? "override" : null,
+    source: marginSource,
     asOf: null,
     status: marginValue == null ? "unknown" : marginValue >= g.net_margin_min_pct ? "pass" : "fail",
     detail:
-      marginValue != null
+      marginSource === "override"
         ? `Manual override. QuickBooks P&L ${qb.pnl ? `last synced ${qb.pnl.as_of_date}` : "has no Q4 data"}.`
-        : qb.pnl
-          ? `QuickBooks P&L last synced ${qb.pnl.as_of_date} (single day, not Q4). Enter a Q4 figure to evaluate.`
-          : "No QuickBooks P&L available. Enter a Q4 net margin to evaluate.",
+        : marginSource === "computed"
+          ? `Computed from the profitability panel: ${computed.weeksWithInputs} of ${computed.weeksWithSales} weeks have ad spend, 3PL and opex entered. Override in Settings if the books say otherwise.`
+          : qb.pnl
+            ? `QuickBooks P&L last synced ${qb.pnl.as_of_date} (single day, not Q4). Enter weekly costs in the profitability panel or a Q4 figure in Settings.`
+            : "No QuickBooks P&L available. Enter weekly costs in the profitability panel or a Q4 net margin in Settings.",
   };
 
   const cashValue = o.cash_balance ?? qb.cash?.cash_position ?? null;
@@ -455,9 +471,25 @@ export async function getTargetsData(db: DB): Promise<TargetsData> {
   const excludedCur = sumRows(current, (r) => r.bucket === "excluded_channel");
   const unpaidCur = sumRows(current, (r) => r.bucket === "excluded_unpaid");
 
-  // Wholesale lands in stage 3 (purchase_orders); zero until then.
-  const wholesaleInvoiced = 0;
-  const wholesaleBooked = 0;
+  const revenueBuckets = [...REVENUE_BUCKETS].filter(
+    (b) => b !== "b2b" || settings.count_b2b_in_total,
+  );
+  const [wholesale, profit, launches] = await Promise.all([
+    getWholesaleSummary(db, { start, end }),
+    getProfitability(db, {
+      daily: current,
+      window: { start, end },
+      today,
+      revenueBuckets,
+      thresholds: {
+        discountRateMaxPct: settings.flags.discount_rate_max_pct,
+        netMarginMinPct: settings.guardrails.net_margin_min_pct,
+      },
+    }),
+    getLaunches(db, { today, windowEnd: end, revenueBuckets }),
+  ]);
+  const wholesaleInvoiced = wholesale.invoicedQ4;
+  const wholesaleBooked = wholesale.bookedNotInvoiced;
 
   const shopifyTotal = sumRows(current, pickRevenue).netSales;
   const total = shopifyTotal + wholesaleInvoiced;
@@ -602,8 +634,11 @@ export async function getTargetsData(db: DB): Promise<TargetsData> {
     },
     pace: paceWithWholesale,
     tiers,
-    guardrails: guardrails(settings, qb),
+    guardrails: guardrails(settings, qb, profit.quarter),
     daily,
+    wholesale,
+    profit,
+    launches,
     bfcm: { days: bfcmDays, bfcm: bfcmTotals, busiestDay: busiest, busiestDayLy: busiestLy, earlyAccess, sla },
   };
 }

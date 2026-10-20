@@ -10,7 +10,9 @@ tiers, what is driving the gap, and whether the growth is profitable. Built Oct 
 | DTC, marketplaces, B2B, seeding, BFCM | Shopify Admin GraphQL → `shopify_orders` / `shopify_order_lines` | `lib/targets/sync.ts`, cron `/api/cron/targets-sync` every 6h + the page's **Refresh** button. Incremental by `updated_at` per quarter window. |
 | Q4 2025 baseline | Same puller, window `q4_2025` | Backfilled 2026-10-20: 12,029 orders, which matches Shopify Analytics' order count for the quarter. |
 | Fulfillment SLA | Shopify fulfillments (written by ShipHero) | `first_fulfilled_at` on each order; no separate ShipHero pull. |
-| Wholesale | `purchase_orders` (buyer POs: Revolve, Anthropologie, URBN, Nordstrom, Target…) | Counts toward Q4 only when invoiced. |
+| Wholesale | `purchase_orders` (buyer POs: Revolve, Anthropologie, URBN, Nordstrom, Target…) | Counts toward Q4 only when invoiced; see below. |
+| Profitability | SKU unit costs + `targets_weekly_inputs` (manual) | Weekly gross / contribution / net margin, MER; see below. |
+| Launch tracker | `launch_drops` (manual) + order lines | Units, revenue, sell-through, days to sell out per drop. |
 | Net margin, cash | QuickBooks `qb_financials` (frozen at 2026-06-22) with manual overrides | Guardrail badges show the source and the as-of date. |
 | Targets, guardrails, dates, staffing tiers | `targets_settings` (key `q4_2026`) | Edited from the page's Settings sheet. |
 
@@ -57,6 +59,43 @@ Notes:
   whether the projection clears them.
 - "Same weekday last year" for BFCM days = the date 364 days earlier (52 weeks), so Black Friday
   2026 (Nov 27) compares to Black Friday 2025 (Nov 28).
+
+## Wholesale (stage 3)
+
+- Rides on `purchase_orders` + `vendors` (partners). Migration 0024 adds `invoice_date`,
+  `invoice_number`, `invoiced_amount`, `paid_date` and seeds the plan partners as vendors
+  (Revolve, Anthropologie, Urban Outfitters, Nordstrom, Target) where missing.
+- **Counted toward Q4**: `invoice_date` inside the quarter (status not draft/cancelled). Amount =
+  `invoiced_amount` when set, else the PO total. **Paid in Q4**: `paid_date` inside the quarter.
+- **Booked, not invoiced**: no invoice date, status not draft/cancelled, and the ship date
+  (else cancel date, else order date) falls in the quarter. Shown separately, never counted.
+- Edit from the tracker (row click) or add a PO; the inbound-email PO agent still lands POs
+  in the same table, so forwarded POs show up here too.
+
+## Profitability (stage 3)
+
+- Weeks start Monday, store-local. Facts per week come from the synced orders (revenue
+  buckets only): net sales, discount rate, units.
+- **COGS** = Σ units × `products.unit_cost_usd` (RPC `targets_weekly_cogs`); the panel shows
+  how many units had a cost. A per-week **COGS override** replaces the estimate. Unit costs are
+  edited from the panel ("Unit costs").
+- Manual weekly inputs (`targets_weekly_inputs`): Meta / TikTok / Google / other ad spend,
+  3PL (RetroShip) cost, other opex, notes. No ad platform or QuickBooks feed exists for these.
+- Gross margin = (net − COGS) / net. Contribution margin also subtracts ad spend and 3PL.
+  Net margin also subtracts other opex. MER = net sales / ad spend. A margin is blank
+  ("needs inputs") until the inputs it depends on exist; it is never guessed.
+- Flags per week: discount rate above the setting (10%) or net margin below the guardrail
+  (25%). The quarter roll-up uses only weeks with complete inputs and says "N of M weeks".
+- The **net margin guardrail** reads the manual override first, then the computed quarter
+  margin, then nothing (QuickBooks has no Q4 P&L).
+
+## Launch tracker (stage 4)
+
+- `launch_drops`: name, drop date, planned units, SKUs, notes. Manual.
+- Per drop, from the drop date on and paid buckets only (RPC `targets_sku_daily`): units sold,
+  revenue (discounted line totals scaled to quantity still on the order), sell-through =
+  units / planned, days to sell out = first day the cumulative units reached the plan.
+- SKUs not in the products list are still tracked if orders carry them; the form just warns.
 
 ## Operations
 
