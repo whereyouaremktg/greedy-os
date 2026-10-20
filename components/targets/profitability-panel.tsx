@@ -26,7 +26,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { saveProductUnitCost, saveWeeklyInputs, type WeeklyInputsInput } from "@/lib/actions/targets-profit";
+import { saveProductUnitCost, saveWeeklyInputs } from "@/lib/actions/targets-profit";
+import type { WeeklyInputsInput } from "@/lib/targets/schemas";
 import type { WeekProfit } from "@/lib/targets/profit";
 import type { ProfitabilityData } from "@/lib/targets/profitability";
 import type { TargetsSettings } from "@/lib/targets/settings";

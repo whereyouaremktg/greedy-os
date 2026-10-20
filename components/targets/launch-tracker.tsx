@@ -25,7 +25,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { deleteLaunchDrop, saveLaunchDrop, type LaunchDropInput } from "@/lib/actions/targets-launches";
+import { deleteLaunchDrop, saveLaunchDrop } from "@/lib/actions/targets-launches";
+import type { LaunchDropInput } from "@/lib/targets/schemas";
 import type { LaunchDrop, LaunchesData } from "@/lib/targets/launches";
 import { Field, MoneyInput } from "@/components/targets/field";
 import { SectionHeading } from "@/components/targets/revenue-sections";

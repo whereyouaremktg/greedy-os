@@ -291,7 +291,7 @@ export async function syncShipHeroShipments(
       let maxDay: string | null = state.through ?? null;
 
       while (true) {
-        if (Date.now() > deadline) {
+        if (now().getTime() > deadline) {
           log?.(`[${w.key}] time budget reached after ${pages} pages; will resume`);
           allComplete = false;
           break;
