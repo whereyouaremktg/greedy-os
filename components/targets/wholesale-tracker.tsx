@@ -26,7 +26,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { saveWholesalePo, type WholesalePoInput } from "@/lib/actions/targets-wholesale";
+import { saveWholesalePo } from "@/lib/actions/targets-wholesale";
+import type { WholesalePoInput } from "@/lib/targets/schemas";
 import { PO_STATUS_LABELS, type PoStatus } from "@/lib/purchase-orders/statuses";
 import type { WholesalePo, WholesaleSummary } from "@/lib/targets/wholesale";
 import { Field, MoneyInput, NativeSelect } from "@/components/targets/field";

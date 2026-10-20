@@ -2,27 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { weeklyInputsSchema, type WeeklyInputsInput } from "@/lib/targets/schemas";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T }
   | { ok: false; error: string };
 
-const money = z.number().nonnegative().nullable();
 
-export const weeklyInputsSchema = z.object({
-  week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  ad_spend_meta: money,
-  ad_spend_tiktok: money,
-  ad_spend_google: money,
-  ad_spend_other: money,
-  threepl_cost: money,
-  other_opex: money,
-  cogs_override: money,
-  notes: z.string().max(2000).nullable(),
-});
 
-export type WeeklyInputsInput = z.infer<typeof weeklyInputsSchema>;
 
 export async function saveWeeklyInputs(input: WeeklyInputsInput): Promise<ActionResult> {
   const parsed = weeklyInputsSchema.safeParse(input);

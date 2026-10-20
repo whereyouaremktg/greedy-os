@@ -2,22 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { launchDropSchema, type LaunchDropInput } from "@/lib/targets/schemas";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T }
   | { ok: false; error: string };
 
-export const launchDropSchema = z.object({
-  id: z.string().uuid().optional(),
-  name: z.string().min(1).max(200),
-  drop_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
-  planned_units: z.number().int().nonnegative().nullable(),
-  skus: z.array(z.string().min(1).max(100)).max(50),
-  notes: z.string().max(2000).nullable(),
-});
 
-export type LaunchDropInput = z.infer<typeof launchDropSchema>;
 
 export async function saveLaunchDrop(input: LaunchDropInput): Promise<ActionResult<{ id: string }>> {
   const parsed = launchDropSchema.safeParse(input);

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
+import { wholesalePoInputSchema, type WholesalePoInput } from "@/lib/targets/schemas";
 import { createClient } from "@/lib/supabase/server";
 import { findOrCreateVendorByName } from "@/lib/vendors/lookup";
 
@@ -9,36 +9,8 @@ export type ActionResult<T = undefined> =
   | { ok: true; data?: T }
   | { ok: false; error: string };
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
-const optDate = isoDate.nullable().optional();
 
-export const wholesalePoInputSchema = z.object({
-  id: z.string().uuid().optional(),
-  partner_name: z.string().min(1).max(200),
-  po_number: z.string().max(100).nullable().optional(),
-  total: z.number().nonnegative(),
-  status: z.enum([
-    "draft",
-    "sent",
-    "confirmed",
-    "in_fulfillment",
-    "shipped",
-    "partially_received",
-    "received",
-    "closed",
-    "cancelled",
-  ]),
-  order_date: optDate,
-  ship_date: optDate,
-  expected_date: optDate,
-  invoice_date: optDate,
-  invoice_number: z.string().max(100).nullable().optional(),
-  invoiced_amount: z.number().nonnegative().nullable().optional(),
-  paid_date: optDate,
-  notes: z.string().max(2000).nullable().optional(),
-});
 
-export type WholesalePoInput = z.infer<typeof wholesalePoInputSchema>;
 
 /** Create or update a wholesale buyer PO (a purchase_orders row). */
 export async function saveWholesalePo(input: WholesalePoInput): Promise<ActionResult<{ id: string }>> {
