@@ -19,6 +19,7 @@ import {
   type TimelineEvent,
 } from "@/lib/timeline/types";
 import { filterEvents } from "@/lib/timeline/utils";
+import { useOnPropChange } from "@/lib/use-on-prop-change";
 
 type CategoryFilter = TimelineCategory | "all";
 
@@ -45,13 +46,13 @@ export function TimelineView({
   const [detailOpen, setDetailOpen] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState("horizon");
 
-  React.useEffect(() => {
-    setEvents(initialEvents);
+  useOnPropChange(initialEvents, (next) => {
+    setEvents(next);
     setSelectedEvent((prev) => {
       if (!prev) return prev;
-      return initialEvents.find((e) => e.id === prev.id) ?? null;
+      return next.find((e) => e.id === prev.id) ?? null;
     });
-  }, [initialEvents]);
+  });
 
   React.useEffect(() => {
     function refreshIfVisible() {

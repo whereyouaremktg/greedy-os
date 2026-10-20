@@ -6,8 +6,8 @@ import { AppProviders } from "@/components/providers/app-providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Glow OS",
-  description: "Read-only command center for Glow operations.",
+  title: "Greedy OS",
+  description: "Operations command center for Greedy Selfish Haircare.",
 };
 
 export default function RootLayout({

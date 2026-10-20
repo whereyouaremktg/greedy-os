@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Greedy OS
 
-## Getting Started
+Operations command center for Greedy Selfish Haircare (formerly Glow Beauty): purchase orders,
+manufacturing runs, campaigns, inventory, connector pulls (Shopify, ShipHero/RetroShip,
+QuickBooks) and the **Q4 Targets** dashboard.
 
-First, run the development server:
+- Stack: Next.js 16 (app router) · React 19 · Tailwind v4 + shadcn · Supabase (auth + Postgres) ·
+  Vercel (hosting + crons) · Vercel AI Gateway (analyst chat, document parsing).
+- Status, decisions and runbooks: `docs/HANDOFF.md`. Design system: `STYLE.md`.
+- Q4 Targets data rules (what counts as revenue, seeding, pace): `docs/Q4-TARGETS.md`.
+
+## Local dev
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+nvm use            # Node 24
+pnpm install
+vercel env pull .env.local
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Checks: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Data pipes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Pipe | Mechanism | Cadence |
+|---|---|---|
+| Shopify sales + inventory | `/api/cron/shopify` | every 2h |
+| Shopify orders for Q4 Targets | `/api/cron/targets-sync` (+ manual Refresh) | every 6h |
+| Shopify SKU sales history | `/api/cron/shopify-sales-history` | weekly |
+| ShipHero / RetroShip | `/api/cron/shiphero` | every 6h |
+| HubSpot deals | `/api/cron/hubspot` | every 6h |
+| QuickBooks | manual / stale since 2026-06-22 — dashboard uses overrides | — |
+| Klaviyo | not connected (puller is a stub, unscheduled) | — |
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Migrations live in `supabase/migrations/` and are applied by hand against the production
+project (see `docs/HANDOFF.md`); regenerate or hand-extend `types/db.ts` after each one.

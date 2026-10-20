@@ -13,6 +13,7 @@ import {
   LogOut,
   Settings,
   CalendarRange,
+  Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
@@ -23,13 +24,14 @@ import type {
 
 type NavCounterKey = keyof NavCounters;
 
-const NAV: {
+export const NAV: {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
   counter?: NavCounterKey;
 }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/targets", label: "Q4 Targets", icon: Target },
   {
     href: "/purchase-orders",
     label: "Purchase Orders",
@@ -89,10 +91,10 @@ export function Sidebar({
   const pathname = usePathname();
 
   return (
-    <aside className="w-[220px] shrink-0 border-r bg-sidebar flex flex-col">
+    <aside className="hidden w-[220px] shrink-0 border-r bg-sidebar md:flex md:flex-col">
       <div className="px-4 py-4 border-b border-sidebar-border">
         <div className="text-[15px] font-semibold tracking-tight text-sidebar-foreground">
-          Glow OS
+          Greedy OS
         </div>
         <div className="text-[11px] text-muted-foreground mt-0.5">
           Command center

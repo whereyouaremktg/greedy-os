@@ -33,6 +33,7 @@ import {
 } from "@/lib/manufacturing/dates";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useOnPropChange } from "@/lib/use-on-prop-change";
 
 function TaskCardContent({
   task,
@@ -203,9 +204,7 @@ export function CampaignTaskBoard({
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    setTasks(tasksProp);
-  }, [tasksProp]);
+  useOnPropChange(tasksProp, setTasks);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),

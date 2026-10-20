@@ -991,19 +991,28 @@ export function DashboardWorkspace({
                   )}
                   {maybe(
                     "emailAffiliate",
-                    <KpiTile
-                      title="Email + affiliate revenue"
-                      rawValue={marketing.total}
-                      format="usd"
-                      sub={`${formatUsd(marketing.emailRevenue)} email / ${formatUsd(
-                        marketing.affiliateRevenue,
-                      )} affiliate`}
-                      hint="Klaviyo"
-                      syncedAt={marketing.syncedAt}
-                      staleAfterMs={staleAfter.klaviyo}
-                      trend={marketing.trend}
-                      delta={marketing.delta}
-                    />,
+                    marketing.syncedAt ? (
+                      <KpiTile
+                        title="Email + affiliate revenue"
+                        rawValue={marketing.total}
+                        format="usd"
+                        sub={`${formatUsd(marketing.emailRevenue)} email / ${formatUsd(
+                          marketing.affiliateRevenue,
+                        )} affiliate`}
+                        hint="Klaviyo"
+                        syncedAt={marketing.syncedAt}
+                        staleAfterMs={staleAfter.klaviyo}
+                        trend={marketing.trend}
+                        delta={marketing.delta}
+                      />
+                    ) : (
+                      <KpiTile
+                        title="Email + affiliate revenue"
+                        value="—"
+                        status="pending"
+                        hint="Klaviyo is not connected: the puller is a stub and its cron is unscheduled. Needs a Metrics API puller."
+                      />
+                    ),
                   )}
                   {maybe(
                     "pipeline",

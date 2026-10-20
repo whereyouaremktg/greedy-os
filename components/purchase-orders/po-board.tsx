@@ -36,6 +36,7 @@ import type { PoRow } from "@/components/purchase-orders/types";
 import { usePrefersReducedMotion } from "@/components/relative-time";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useOnPropChange } from "@/lib/use-on-prop-change";
 
 function applyStatusSideEffects(order: PoRow, status: PoStatus): PoRow {
   return { ...order, status };
@@ -370,9 +371,7 @@ export function PoBoard({
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
 
-  React.useEffect(() => {
-    setOrders(ordersProp);
-  }, [ordersProp]);
+  useOnPropChange(ordersProp, setOrders);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),

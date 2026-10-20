@@ -10,6 +10,7 @@ import {
   computeLandedMargin,
   type LandedMarginResult,
 } from "@/lib/costing/landed-margin";
+import { useOnPropChange } from "@/lib/use-on-prop-change";
 
 function parseUsdInput(raw: string): number | undefined {
   const cleaned = raw.replace(/[$,\s]/g, "").trim();
@@ -46,21 +47,15 @@ export function LandedMarginPanel({
       : "",
   );
 
-  React.useEffect(() => {
-    setProductCost(
-      defaultProductCostUsd > 0 ? String(defaultProductCostUsd) : "",
-    );
-  }, [defaultProductCostUsd]);
+  useOnPropChange(defaultProductCostUsd, (next) => {
+    setProductCost(next > 0 ? String(next) : "");
+  });
 
-  React.useEffect(() => {
-    if (
-      defaultSellPricePerUnitUsd != null &&
-      defaultSellPricePerUnitUsd > 0 &&
-      !sellPrice
-    ) {
-      setSellPrice(String(defaultSellPricePerUnitUsd));
+  useOnPropChange(defaultSellPricePerUnitUsd, (next) => {
+    if (next != null && next > 0 && !sellPrice) {
+      setSellPrice(String(next));
     }
-  }, [defaultSellPricePerUnitUsd, sellPrice]);
+  });
 
   const result = React.useMemo(() => {
     const productCostUsd = parseUsdInput(productCost) ?? 0;

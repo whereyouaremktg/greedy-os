@@ -3,7 +3,8 @@ import { runShopifyPull } from "@/lib/pullers/shopify";
 import { runShopifyInventoryPull } from "@/lib/pullers/shopify-inventory";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// 30 days of paged orders + the inventory snapshot; 60s timed out a few times a month.
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {

@@ -15,11 +15,13 @@ import {
 import { cn } from "@/lib/utils";
 import { useCommandPalette } from "@/components/command/command-palette";
 import { useAnalystDrawer } from "@/components/chat/analyst-drawer";
+import { MobileNav } from "@/components/nav/mobile-nav";
 import { formatRelativeTime } from "@/lib/format";
 import type { GlobalSyncStatus } from "@/lib/dashboard/sync-status";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/dashboard": "Dashboard",
+  "/targets": "Q4 Targets",
   "/vendors": "Vendors",
   "/purchase-orders": "Purchase Orders",
   "/manufacturing": "Manufacturing",
@@ -32,7 +34,7 @@ const ROUTE_LABELS: Record<string, string> = {
 function breadcrumbLabel(pathname: string): string {
   if (ROUTE_LABELS[pathname]) return ROUTE_LABELS[pathname];
   const base = `/${pathname.split("/")[1] ?? ""}`;
-  return ROUTE_LABELS[base] ?? "Glow OS";
+  return ROUTE_LABELS[base] ?? "Greedy OS";
 }
 
 function initialsFromEmail(email: string): string {
@@ -134,8 +136,9 @@ export function Topbar({
   const { setOpen: setAnalystOpen } = useAnalystDrawer();
 
   return (
-    <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between border-b bg-background/80 px-5 backdrop-blur-sm">
+    <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between border-b bg-background/80 px-3 backdrop-blur-sm md:px-5">
       <div className="flex items-center gap-2 min-w-0">
+        <MobileNav />
         <span className="text-sm font-medium truncate">
           {breadcrumbLabel(pathname)}
         </span>
