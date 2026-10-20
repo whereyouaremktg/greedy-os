@@ -75,7 +75,7 @@ export type ShopifyOrderNode = {
   totalTaxSet: Money;
   currentTotalPriceSet: Money;
   fulfillments: Array<{ createdAt: string; status: string | null }>;
-  lineItems: { pageInfo: { hasNextPage: boolean }; nodes: LineItemNode[] };
+  lineItems: { pageInfo: { hasNextPage: boolean; endCursor?: string | null }; nodes: LineItemNode[] };
 };
 type OrdersData = {
   orders: {
@@ -88,6 +88,13 @@ type QueryCost = {
   actualQueryCost: number | null;
   throttleStatus: { maximumAvailable: number; currentlyAvailable: number; restoreRate: number };
 };
+
+const LINE_ITEM_FIELDS = /* GraphQL */ `
+  sku name title variantTitle quantity currentQuantity
+  product { id } variant { id }
+  originalTotalSet { shopMoney { amount } }
+  discountedTotalSet { shopMoney { amount } }
+`;
 
 export const ORDERS_QUERY = /* GraphQL */ `
   query TargetsOrders($query: String!, $cursor: String, $first: Int!, $liFirst: Int!) {
@@ -108,14 +115,23 @@ export const ORDERS_QUERY = /* GraphQL */ `
         currentTotalPriceSet { shopMoney { amount } }
         fulfillments(first: 5) { createdAt status }
         lineItems(first: $liFirst) {
-          pageInfo { hasNextPage }
-          nodes {
-            sku name title variantTitle quantity currentQuantity
-            product { id } variant { id }
-            originalTotalSet { shopMoney { amount } }
-            discountedTotalSet { shopMoney { amount } }
-          }
+          pageInfo { hasNextPage endCursor }
+          nodes { ${LINE_ITEM_FIELDS} }
         }
+      }
+    }
+  }
+`;
+
+// Follow-up for the rare order with more line items than one page carries
+// (large B2B orders). Fetched per order, after the page, so the mirrored
+// lines and the unit count are never truncated.
+export const LINE_ITEMS_QUERY = /* GraphQL */ `
+  query TargetsOrderLines($id: ID!, $cursor: String) {
+    order(id: $id) {
+      lineItems(first: 250, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes { ${LINE_ITEM_FIELDS} }
       }
     }
   }
@@ -333,6 +349,48 @@ async function requestPage(
   throw new Error("Shopify orders query exhausted retries");
 }
 
+type OrderLinesData = {
+  order: { lineItems: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: LineItemNode[] } } | null;
+};
+
+/**
+ * Append the remaining line-item pages to any order whose first page was
+ * truncated. Mutates the nodes in place and returns how many follow-up
+ * requests were made.
+ */
+export async function completeLineItems(
+  shopify: ShopifyLike,
+  nodes: ShopifyOrderNode[],
+  log?: (m: string) => void,
+): Promise<number> {
+  let requests = 0;
+  for (const o of nodes) {
+    let hasNext = Boolean(o.lineItems?.pageInfo?.hasNextPage);
+    let cursor = o.lineItems?.pageInfo?.endCursor ?? null;
+    let guard = 0;
+    while (hasNext && cursor && guard++ < 40) {
+      let res: GraphQLResult<OrderLinesData> | null = null;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        res = await shopify.request<OrderLinesData>(LINE_ITEMS_QUERY, { variables: { id: o.id, cursor } });
+        requests++;
+        if (res.errors && isThrottled(res.errors)) {
+          await sleep(Math.min(1000 * 2 ** attempt, 20_000));
+          continue;
+        }
+        break;
+      }
+      if (!res || res.errors) throw new Error(`Shopify order line items query failed: ${errorText(res?.errors)}`);
+      const conn = res.data?.order?.lineItems;
+      if (!conn) break;
+      o.lineItems.nodes.push(...conn.nodes);
+      hasNext = conn.pageInfo.hasNextPage;
+      cursor = conn.pageInfo.endCursor;
+    }
+    if (guard > 0) log?.(`[${o.name}] fetched ${o.lineItems.nodes.length} line items over ${guard + 1} pages`);
+  }
+  return requests;
+}
+
 async function waitForBudget(cost: QueryCost | null): Promise<void> {
   if (!cost) return;
   const { currentlyAvailable, restoreRate } = cost.throttleStatus;
@@ -354,7 +412,7 @@ export async function syncShopifyOrders(
   const startedAt = now();
   const deadline = startedAt.getTime() + opts.budgetMs;
   let pageSize = opts.pageSize ?? 25;
-  const liFirst = opts.lineItemsPerOrder ?? 20;
+  const liFirst = opts.lineItemsPerOrder ?? 50;
 
   // Run record (best-effort: a failure here must not block the sync).
   let runId: number | null = null;
@@ -402,6 +460,7 @@ export async function syncShopifyOrders(
         const nodes = data.orders.nodes;
 
         if (nodes.length > 0) {
+          await completeLineItems(shopify, nodes, log);
           const rows = nodes.map((n) => orderToRow(n, rules, tz, syncedAt));
           const orderRows = rows.map((r) => r.row);
           const lineRows = rows.flatMap((r) => r.lines);

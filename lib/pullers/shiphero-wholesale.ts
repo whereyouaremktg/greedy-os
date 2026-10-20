@@ -1,6 +1,6 @@
 import "server-only";
 import { paginate, type ConnectionPage } from "@/lib/shiphero/client";
-import { fullReplace, mirrorDb } from "@/lib/shiphero/mirror-db";
+import { mirrorDb, windowedReplace } from "@/lib/shiphero/mirror-db";
 
 // ShipHero "Manual Order" channel -> shiphero_wholesale_orders.
 //
@@ -14,7 +14,7 @@ const SHOP_NAME = "Manual Order";
 // Per-operation complexity ~= outer_first * (1 + nested_first), capped at 4004.
 const PAGE_SIZE = 20;
 const LINES_PER_ORDER = 10;
-const LOOKBACK_DAYS = 120; // ~4 months — enough for PO reconciliation; 540 days timed out the 300s cron
+const LOOKBACK_DAYS = 120; // per run; 540 days timed out the 300s cron. Older rows are kept (windowed replace), so reconciliation against all purchase_orders still sees them.
 const WHOLESALE_QTY_FLOOR = 12; // bulk threshold when price is $0 (no-charge POs)
 
 export type WholesaleClassification =
@@ -144,9 +144,11 @@ export async function runShipHeroWholesalePull(): Promise<{
   }
 
   const rows = [...byOrder.values()];
-  const written = await fullReplace(
+  const written = await windowedReplace(
     mirrorDb(),
     "shiphero_wholesale_orders",
+    "order_date",
+    fromDate,
     "order_number",
     rows,
   );

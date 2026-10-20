@@ -380,6 +380,10 @@ function LabelsForm({
   );
 }
 
+function costsFromDetail(d: PoDetail): Record<string, string> {
+  return Object.fromEntries(d.line_items.map((li) => [li.id, String(li.unit_cost)]));
+}
+
 function CostsForm({
   detail,
   onSaved,
@@ -387,16 +391,15 @@ function CostsForm({
   detail: PoDetail;
   onSaved?: () => void;
 }) {
-  const [costs, setCosts] = React.useState<Record<string, string>>({});
+  // Seed from the PO on mount AND when a different PO is shown: the prop-change
+  // hook only fires on a change, so an empty initial state would render blank
+  // inputs and "Save pricing" would write zeros over the stored costs.
+  const [costs, setCosts] = React.useState<Record<string, string>>(() =>
+    costsFromDetail(detail),
+  );
   const [pending, startTransition] = React.useTransition();
 
-  useOnPropChange(detail, (d) => {
-    setCosts(
-      Object.fromEntries(
-        d.line_items.map((li) => [li.id, String(li.unit_cost)]),
-      ),
-    );
-  });
+  useOnPropChange(detail, (d) => setCosts(costsFromDetail(d)));
 
   const previewTotal = detail.line_items.reduce((sum, li) => {
     const raw = costs[li.id];
