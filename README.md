@@ -8,6 +8,7 @@ QuickBooks) and the **Q4 Targets** dashboard.
   Vercel (hosting + crons) · Vercel AI Gateway (analyst chat, document parsing).
 - Status, decisions and runbooks: `docs/HANDOFF.md`. Design system: `STYLE.md`.
 - Q4 Targets data rules (what counts as revenue, seeding, pace): `docs/Q4-TARGETS.md`.
+- Roadmap and gap analysis toward the Shopify brand co-pilot: `docs/BRAND-COPILOT-PLAN.md`.
 
 ## Local dev
 
